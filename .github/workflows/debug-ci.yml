@@ -38,6 +38,8 @@ jobs:
           echo "bandit_exit=$LASTEXITCODE" >> bandit.txt
           python -m pytest -q > pytest.txt 2>&1
           echo "pytest_exit=$LASTEXITCODE" >> pytest.txt
+          python -m pip_audit --desc --local --disable-pip > pipaudit.txt 2>&1
+          echo "pipaudit_exit=$LASTEXITCODE" >> pipaudit.txt
 
       - name: Post output as issue
         shell: pwsh
@@ -45,7 +47,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           $body = "# CI debug dump ($env:GITHUB_SHA)`n`n"
-          foreach ($f in @("mypy.txt", "bandit.txt", "pytest.txt")) {
+          foreach ($f in @("mypy.txt", "bandit.txt", "pytest.txt", "pipaudit.txt")) {
             $txt = Get-Content $f -Raw
             if ($txt.Length -gt 20000) { $txt = $txt.Substring(0, 20000) + "`n...[truncated]" }
             $body += "## $f`n```````n$txt`n```````n`n"
