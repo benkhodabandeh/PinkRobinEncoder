@@ -4,11 +4,12 @@ Contains reusable, themed custom UI components (dialogs, etc.) for Pink Robin En
 This helps to keep the main application logic and other GUI modules clean.
 """
 
-import customtkinter as ctk
-from tkinter import messagebox
-import webbrowser
 import logging
 import os
+import webbrowser
+from tkinter import messagebox
+
+import customtkinter as ctk
 
 import config
 import utils
@@ -33,7 +34,7 @@ class InputDialog(ctk.CTkToplevel):
             try:
                 self.after(200, lambda: self.iconbitmap(parent.icon_path))
             except Exception:
-                pass
+                logger.debug("Dialog icon could not be set; continuing without it.")
 
         ctk.CTkLabel(self, text=prompt, font=config.Theme.FONT_BODY).pack(
             padx=20, pady=(20, 10)

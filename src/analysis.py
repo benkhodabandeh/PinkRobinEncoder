@@ -7,30 +7,29 @@ Functions for video analysis for Pink Robin Encoder including:
   - Analyzing image colors in parallel for palette display.
 """
 
-import os
-import logging
-import json
-import re
-import random
-import math
 import concurrent.futures
-from typing import Dict, Optional, List, Any, Callable, Tuple
+import json
+import logging
+import math
+import os
+import random
+import re
+from collections.abc import Callable
+from typing import Any
 
 # Third-party imports - Pillow required
-from PIL import Image, ImageDraw, __version__ as PILLOW_VERSION
-
-HAS_PILLOW = True
-logger = logging.getLogger(__name__)  # Defer logger init until after check
-logger.debug(
-    f"Pillow library found (v{PILLOW_VERSION}). Palette and image features enabled."
-)
-
+from PIL import Image, ImageDraw
+from PIL import __version__ as PILLOW_VERSION
 
 # Local imports
 import config
 import utils
 
+HAS_PILLOW = True
 logger = logging.getLogger(__name__)
+logger.debug(
+    f"Pillow library found (v{PILLOW_VERSION}). Palette and image features enabled."
+)
 
 
 # --- Helper Functions for Info Formatting ---
@@ -65,7 +64,7 @@ def _get_audio_bit_depth(sample_fmt: str) -> str:
     return ""
 
 
-def _get_video_bit_depth(video_stream: Dict[str, Any]) -> int:
+def _get_video_bit_depth(video_stream: dict[str, Any]) -> int:
     if (bps := video_stream.get("bits_per_raw_sample")) and str(bps).isdigit():
         return int(bps)
     pix_fmt = video_stream.get("pix_fmt", "").lower()
@@ -78,7 +77,7 @@ def _get_video_bit_depth(video_stream: Dict[str, Any]) -> int:
     return 8
 
 
-def get_source_details_text(info: Dict[str, Any]) -> str:
+def get_source_details_text(info: dict[str, Any]) -> str:
     if not info:
         return "No video loaded."
     v_stream, a_stream = info.get("video_stream", {}), info.get("audio_stream", {})
@@ -91,7 +90,10 @@ def get_source_details_text(info: Dict[str, Any]) -> str:
     # those too, otherwise HDR sources are mislabeled SDR in the UI.
     hdr_markers = ("pq", "hlg", "smpte2084", "smpte2086", "arib-std-b67")
     hdr_info = "HDR" if any(m in color_transfer for m in hdr_markers) else "SDR"
-    video_part = f"{v_codec} / {_get_chroma_subsampling(pix_fmt)} / {_get_video_bit_depth(v_stream)}-bit ({hdr_info})"
+    video_part = (
+        f"{v_codec} / {_get_chroma_subsampling(pix_fmt)} / "
+        f"{_get_video_bit_depth(v_stream)}-bit ({hdr_info})"
+    )
     audio_part = "No Audio"
     if a_stream:
         channels, sample_rate = (
@@ -106,14 +108,17 @@ def get_source_details_text(info: Dict[str, Any]) -> str:
             if sample_rate > 0
             else "N/A"
         )
-        audio_part = f"{a_stream.get('codec_name', 'n/a').upper()} / {sample_rate_str} / {channel_layout}"
+        audio_part = (
+            f"{a_stream.get('codec_name', 'n/a').upper()} / "
+            f"{sample_rate_str} / {channel_layout}"
+        )
     return f"Video: {video_part}\nAudio: {audio_part}"
 
 
 # --- Core Analysis Functions ---
 
 
-def get_video_info(filepath: str) -> Optional[Dict[str, Any]]:
+def get_video_info(filepath: str) -> dict[str, Any] | None:
     if not (probe_path := utils.get_ffprobe_path()):
         logger.error("ffprobe executable not found.")
         return None
@@ -131,7 +136,8 @@ def get_video_info(filepath: str) -> Optional[Dict[str, Any]]:
     ret_code, stdout, stderr = utils.run_quick_process(cmd, "FFprobe Info")
     if ret_code != 0:
         logger.error(
-            f"ffprobe failed for '{os.path.basename(filepath)}'. Exit: {ret_code}.\n{stderr.strip()}"
+            f"ffprobe failed for '{os.path.basename(filepath)}'. "
+            f"Exit: {ret_code}.\n{stderr.strip()}"
         )
         return None
     try:
@@ -190,7 +196,7 @@ def detect_crop(
     source_w: int,
     source_h: int,
     detect_duration: int = config.CROP_DETECT_DURATION,
-) -> Optional[str]:
+) -> str | None:
     if not (ffmpeg_path := utils.get_ffmpeg_path()):
         return None
     analyze_time = min(duration - 0.1, float(detect_duration))
@@ -243,7 +249,7 @@ def detect_crop(
     return f"crop={most_common_param}"
 
 
-def analyze_source_complexity(info: Dict[str, Any]) -> str:
+def analyze_source_complexity(info: dict[str, Any]) -> str:
     pixels, framerate, bitrate = (
         info.get("width", 0) * info.get("height", 0),
         info.get("frame_rate", 0),
@@ -265,7 +271,7 @@ def analyze_source_complexity(info: Dict[str, Any]) -> str:
     return suggestion
 
 
-def _get_random_timestamps(duration: float, num_stills: int) -> List[float]:
+def _get_random_timestamps(duration: float, num_stills: int) -> list[float]:
     if duration <= 1.0:
         return [duration / 2.0] if num_stills > 0 else []
     margin = min(1.0, duration * 0.05)
@@ -276,8 +282,8 @@ def _get_random_timestamps(duration: float, num_stills: int) -> List[float]:
     for _ in range(num_stills * 30):
         if len(timestamps) >= num_stills:
             break
-        timestamps.add(random.uniform(min_time, max_time))
-    return sorted(list(timestamps))
+        timestamps.add(random.uniform(min_time, max_time))  # noqa: S311 - preview timestamps are not security-sensitive
+    return sorted(timestamps)
 
 
 def _extract_still(
@@ -304,7 +310,8 @@ def _extract_still(
         "-vframes",
         "1",
     ]
-    # For truly uncompressed, pixel-perfect stills, just use the PNG codec without compression flags.
+    # For truly uncompressed, pixel-perfect stills, use the PNG codec
+    # without compression flags.
     if is_png:
         cmd.extend(["-c:v", "png"])
     else:
@@ -335,9 +342,9 @@ def generate_stills_parallel(
     is_png: bool,
     prefix: str,
     cancel_flag_func: Callable[[], bool],
-    output_filename_base: Optional[str] = None,
-    timestamps_to_use: Optional[List[float]] = None,
-) -> List[str]:
+    output_filename_base: str | None = None,
+    timestamps_to_use: list[float] | None = None,
+) -> list[str]:
     """Generates multiple still images in parallel, with optional custom naming and timestamps."""
     timestamps = (
         timestamps_to_use
@@ -347,7 +354,7 @@ def generate_stills_parallel(
     if not timestamps:
         logger.error("Failed to generate timestamps for still extraction.")
         return []
-    generated_files: List[Optional[str]] = [None] * len(timestamps)
+    generated_files: list[str | None] = [None] * len(timestamps)
     file_ext = (
         config.FINAL_STILL_EXTENSION if is_png else config.PREVIEW_STILL_EXTENSION
     )
@@ -355,7 +362,7 @@ def generate_stills_parallel(
     with concurrent.futures.ThreadPoolExecutor(
         max_workers=min(4, max(1, (os.cpu_count() or 2) // 2))
     ) as executor:
-        future_to_index: Dict[concurrent.futures.Future, Tuple[int, str]] = {}
+        future_to_index: dict[concurrent.futures.Future, tuple[int, str]] = {}
         for i, ts in enumerate(timestamps):
             if cancel_flag_func():
                 break
@@ -389,7 +396,7 @@ def generate_stills_parallel(
 
 def generate_single_still(
     input_filepath: str, duration: float, index_to_replace: int, output_dir: str
-) -> Optional[Tuple[str, float]]:
+) -> tuple[str, float] | None:
     """Generates a single replacement preview still, returning its path and timestamp."""
     timestamps = _get_random_timestamps(duration, 1)
     if not timestamps:
@@ -405,7 +412,7 @@ def generate_single_still(
     return None
 
 
-def analyze_image_colors(image_path: str, num_colors: int) -> Optional[List[str]]:
+def analyze_image_colors(image_path: str, num_colors: int) -> list[str] | None:
     """Analyzes the dominant colors of an image using Pillow."""
     if not HAS_PILLOW or not os.path.exists(image_path):
         return None
@@ -438,10 +445,10 @@ def analyze_image_colors(image_path: str, num_colors: int) -> Optional[List[str]
 
 
 def analyze_images_in_parallel(
-    image_paths: List[str], cancel_flag_func: Callable
-) -> Dict[str, List[str]]:
+    image_paths: list[str], cancel_flag_func: Callable
+) -> dict[str, list[str]]:
     """Analyzes colors for multiple images in parallel."""
-    colors_map: Dict[str, List[str]] = {}
+    colors_map: dict[str, list[str]] = {}
     if not HAS_PILLOW:
         return colors_map
     with concurrent.futures.ThreadPoolExecutor(
@@ -464,8 +471,8 @@ def analyze_images_in_parallel(
 
 
 def add_palette_to_still(
-    image_or_path: Any, colors: List[str]
-) -> Optional[Image.Image]:
+    image_or_path: Any, colors: list[str]
+) -> Image.Image | None:
     """Appends a palette bar to an image, handling both path and Image object inputs."""
     if not HAS_PILLOW or not colors:
         return None

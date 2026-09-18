@@ -1,6 +1,5 @@
 """Tests for a11y helpers, JSON logging, and the startup validation hook."""
 
-import io
 import json
 import logging
 import queue
@@ -89,7 +88,6 @@ def _validate_single(pid, preset):
     original = dict(cfg.STANDARD_PRESETS)
     try:
         cfg.STANDARD_PRESETS = {pid: preset}
-        cfg_extra = dict(cfg.FAST_PRESETS)
         cfg_fast_backup, cfg_wf_backup = cfg.FAST_PRESETS, cfg.WORKFLOW_PRESETS
         cfg.FAST_PRESETS, cfg.WORKFLOW_PRESETS = {}, {}
         try:

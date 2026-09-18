@@ -5,30 +5,34 @@ Manages the main window, core application state, UI queue, and background
 task execution, orchestrating all other modules.
 """
 
-import sys
-import customtkinter as ctk
-import tkinter as tk
-from tkinter import messagebox
-import os
-import logging
-import threading
-import queue
-import weakref
-import subprocess
 import copy
-from typing import Optional, Dict, Any, Callable, List
+import logging
+import os
+import queue
+import subprocess
+import sys
+import threading
+import tkinter as tk
+import weakref
+from collections.abc import Callable
+from tkinter import messagebox
+from typing import Any
+
+import customtkinter as ctk
+
+import analysis
 
 # Local module imports
 import config
-import logger_setup
-import utils
-import analysis
-from gui_support import OperationCancelledError
+import encoding
+import gui_callbacks
 import gui_panels
 import gui_updaters
+import logger_setup
 import ui_components
-import encoding
 import ui_runtime
+import utils
+from gui_support import OperationCancelledError
 
 if analysis.HAS_PILLOW:
     from PIL import ImageTk
@@ -61,13 +65,11 @@ class App(ctk.CTk):
 
     def _initialize_state(self):
         """Initializes all state variables for the application."""
-        self.input_file_original: Optional[str] = None
-        self.input_file_info: Dict[str, Any] = {}
-        self.destination_path: Optional[str] = None
-        self.app_temp_dir: Optional[str] = None
-        self.metadata: Dict[str, str] = {
-            field: "" for field in config.METADATA_USER_FIELDS
-        }
+        self.input_file_original: str | None = None
+        self.input_file_info: dict[str, Any] = {}
+        self.destination_path: str | None = None
+        self.app_temp_dir: str | None = None
+        self.metadata: dict[str, str] = dict.fromkeys(config.METADATA_USER_FIELDS, "")
         self.is_video_loaded: bool = False
         self.selected_standard_presets: set = set()
         self.selected_fast_presets: set = set()
@@ -82,29 +84,29 @@ class App(ctk.CTk):
             value=str(config.WORKFLOW_PRESETS["THE_JOB"]["default_target_mb"])
         )
         self.target_mb_display_var = ctk.StringVar(value="The Job")
-        self.preview_stills_paths: List[str] = []
-        self.preview_stills_timestamps: List[float] = []
-        self.preview_stills_colors: Dict[str, List[str]] = {}
+        self.preview_stills_paths: list[str] = []
+        self.preview_stills_timestamps: list[float] = []
+        self.preview_stills_colors: dict[str, list[str]] = {}
         self.current_preview_index: int = -1
-        self._preview_photo_image_ref: Optional[Any] = None
-        self.logo_photo_image: Optional[Any] = None
-        self.resize_job_id: Optional[str] = None
-        self.batch_queue: List[Dict[str, Any]] = []
+        self._preview_photo_image_ref: Any | None = None
+        self.logo_photo_image: Any | None = None
+        self.resize_job_id: str | None = None
+        self.batch_queue: list[dict[str, Any]] = []
         self.ui_update_queue = queue.Queue()
         self.is_processing: bool = False
         self.is_preparing: bool = False
         self.cancel_requested: bool = False
-        self.process_holder: List[subprocess.Popen] = []
+        self.process_holder: list[subprocess.Popen] = []
         self.processing_task_description: str = ""
         self.current_encoding_job_description: str = ""
         self.last_known_progress: float = 0.0
-        self.busy_animation_job_id: Optional[str] = None
-        self.app_settings: Dict[str, Any] = {}
+        self.busy_animation_job_id: str | None = None
+        self.app_settings: dict[str, Any] = {}
         self.active_bitrate_kbits: float = 0.0
         self.estimated_size_mb: float = 0.0
         self.estimated_time_s: float = 0.0
-        self.qc_window: Optional[tk.Toplevel] = None
-        self.widget_refs: Dict[str, Any] = {}
+        self.qc_window: tk.Toplevel | None = None
+        self.widget_refs: dict[str, Any] = {}
         self.is_develop_run: bool = False
 
     def _setup_logging(self):
@@ -127,9 +129,13 @@ class App(ctk.CTk):
                 ]
                 if not path
             ]
+            missing_str = " and ".join(missing)
             self._show_critical_error_and_exit(
                 "Dependency Error",
-                f"Critical Error: Cannot find {' and '.join(missing)}.\n\nPlease ensure FFmpeg is in a 'bin' folder next to the application or in the system PATH.\n\nApplication will now exit.",
+                "Critical Error: Cannot find "
+                f"{missing_str}.\n\nPlease ensure FFmpeg is in a 'bin' folder "
+                "next to the application or in the system PATH.\n\n"
+                "Application will now exit.",
             )
 
     def _load_assets(self):
@@ -217,28 +223,28 @@ class App(ctk.CTk):
         # Ctrl+O: Load video
         self.bind("<Control-o>", lambda e: gui_callbacks.load_video_callback(self))
         self.bind("<Control-O>", lambda e: gui_callbacks.load_video_callback(self))
-        
+
         # Ctrl+S: Develop/encode
         self.bind("<Control-s>", lambda e: gui_callbacks.develop_callback(self))
         self.bind("<Control-S>", lambda e: gui_callbacks.develop_callback(self))
-        
+
         # Ctrl+Q: QC Tool
         self.bind("<Control-q>", lambda e: gui_callbacks.open_qc_tool_callback(self))
         self.bind("<Control-Q>", lambda e: gui_callbacks.open_qc_tool_callback(self))
-        
+
         # Escape: Cancel current operation
         self.bind("<Escape>", lambda e: gui_callbacks.cancel_callback(self))
-        
+
         # Delete: Remove selected queue item
         self.bind("<Delete>", lambda e: self._remove_selected_queue_item())
-        
+
         # Arrow keys for queue navigation
         self.bind("<Up>", lambda e: self._move_queue_item(-1))
         self.bind("<Down>", lambda e: self._move_queue_item(1))
-        
+
         # F5: Reload preview
         self.bind("<F5>", lambda e: gui_callbacks.reload_still_callback(self))
-        
+
         # Number keys 1-9: Quick select preset
         for i in range(1, 10):
             self.bind(f"<Key-{i}>", lambda e, idx=i-1: self._select_preset_by_index(idx))
@@ -361,14 +367,14 @@ class App(ctk.CTk):
         else:
             gui_updaters.handle_status_update(self, "Ready.")
 
-    def reset_to_load_state(self, filepath: Optional[str] = None):
+    def reset_to_load_state(self, filepath: str | None = None):
         logger.debug("Performing hard reset of UI state.")
         self.input_file_original = filepath
         self.input_file_info = {}
         self.is_video_loaded = False
         self.batch_queue.clear()
 
-        self.metadata = {field: "" for field in config.METADATA_USER_FIELDS}
+        self.metadata = dict.fromkeys(config.METADATA_USER_FIELDS, "")
         if meta_entries := self.widget_refs.get("meta_entries"):
             for entry_ref in meta_entries.values():
                 if entry := self._get_widget(entry_ref):
@@ -514,7 +520,7 @@ class App(ctk.CTk):
 
         # Parallel estimate calculation for multiple presets
         import concurrent.futures
-        
+
         def calculate_preset_estimate(pid: str) -> tuple:
             """Calculate estimate for a single preset."""
             preset_conf = (
@@ -524,7 +530,7 @@ class App(ctk.CTk):
             )
             if not preset_conf:
                 return (pid, 0, 0, 0, False, None)
-            
+
             # Use a deep copy to prevent state pollution
             job_item = copy.deepcopy(base_job_item)
             job_item["preset_id"], job_item["preset_conf"] = pid, preset_conf
@@ -534,7 +540,10 @@ class App(ctk.CTk):
 
             is_crf_local = "crf" in preset_conf.get("rate_control_mode", "")
             if is_crf_local:
-                return (pid, 0, 0, time_est, True, preset_conf.get("crf_levels", {}).get(self.quality_level_var.get()))
+                crf_here = preset_conf.get("crf_levels", {}).get(
+                    self.quality_level_var.get()
+                )
+                return (pid, 0, 0, time_est, True, crf_here)
 
             video_kbps = utils.calculate_video_bitrate(
                 pid, preset_conf, self.input_file_info, job_item, out_w, out_h
@@ -560,22 +569,22 @@ class App(ctk.CTk):
         # Use ThreadPoolExecutor for I/O-bound estimate calculations
         # Use min of preset count or CPU count for optimal parallelism
         max_workers = min(len(all_presets), os.cpu_count() or 4)
-        
+
         total_bitrate, total_size, total_time, is_crf, crf_val = 0, 0, 0, False, None
-        
+
         with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
             future_to_pid = {
-                executor.submit(calculate_preset_estimate, pid): pid 
+                executor.submit(calculate_preset_estimate, pid): pid
                 for pid in all_presets
             }
-            
+
             for future in concurrent.futures.as_completed(future_to_pid):
                 try:
                     pid, bitrate, size, time_est, is_crf_local, crf = future.result()
                     total_bitrate += bitrate
                     total_size += size
                     total_time += time_est
-                    
+
                     if is_crf_local:
                         is_crf = True
                         if crf and crf_val is None:
@@ -599,7 +608,7 @@ class App(ctk.CTk):
             crf_val,
         )
 
-    def _pre_flight_checks(self, job_list: List[Dict[str, Any]]) -> bool:
+    def _pre_flight_checks(self, job_list: list[dict[str, Any]]) -> bool:
         if not job_list:
             self._show_error(
                 "Queue Empty", "There are no jobs in the queue to develop."
@@ -615,7 +624,8 @@ class App(ctk.CTk):
             if not job_metadata.get("title") or not job_metadata.get("year"):
                 if not messagebox.askyesno(
                     "Missing Metadata",
-                    f"The job for '{job_title}' has a missing Title and/or Year.\n\nProceed anyway?",
+                    f"The job for '{job_title}' has a missing Title "
+                    "and/or Year.\n\nProceed anyway?",
                     icon="question",
                     parent=self,
                 ):
@@ -649,7 +659,7 @@ class App(ctk.CTk):
         utils.save_app_settings(self.app_settings)
         logger.info(f"--- {config.APP_NAME} Application Closed ---")
 
-    def _get_widget(self, ref: Any) -> Optional[ctk.CTkBaseClass]:
+    def _get_widget(self, ref: Any) -> ctk.CTkBaseClass | None:
         widget = (
             ref()
             if isinstance(ref, weakref.ReferenceType)
@@ -693,7 +703,7 @@ class App(ctk.CTk):
             messagebox.showerror(title, message, parent=None)
         sys.exit(1)
 
-    def _show_update_prompt(self, update_info: Dict[str, Any]):
+    def _show_update_prompt(self, update_info: dict[str, Any]):
         choice = ui_components.UpdateDialog.show(self, update_info)
         if choice == "skip":
             self.app_settings["update_skipped_version"] = update_info.get(
@@ -710,7 +720,7 @@ if __name__ == "__main__":
         windll.shcore.SetProcessDpiAwareness(2)
     except (ImportError, AttributeError):
         logger.warning("Could not set high DPI awareness.")
-    
+
     try:
         app = App()
         app.mainloop()
@@ -725,5 +735,6 @@ if __name__ == "__main__":
         root.withdraw()
         messagebox.showerror(
             "Fatal Error",
-            f"A critical error occurred and the application must close.\n\nPlease check logs for details.\n\nError: {e}",
+            "A critical error occurred and the application must close.\n\n"
+            f"Please check logs for details.\n\nError: {e}",
         )

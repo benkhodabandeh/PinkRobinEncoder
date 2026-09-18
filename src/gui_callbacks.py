@@ -5,20 +5,21 @@ These functions are triggered by user interactions (button clicks, etc.)
 and are responsible for initiating application logic in response.
 """
 
-import customtkinter as ctk
-from tkinter import filedialog, messagebox
 import logging
 import os
+from tkinter import filedialog, messagebox
 from typing import TYPE_CHECKING, Any
+
+import customtkinter as ctk
 
 if TYPE_CHECKING:
     from app import App
 
 import a11y
 import config
-import gui_updaters
-import gui_tasks
 import gui_panels
+import gui_tasks
+import gui_updaters
 import ui_components
 
 logger = logging.getLogger(__name__)
@@ -256,9 +257,8 @@ def add_to_queue_callback(app: "App"):
         return
 
     app.batch_queue.append(job_item)
-    logger.info(
-        f"Added job '{job_item['metadata'].get('title', 'Untitled')}' to queue. Queue size: {len(app.batch_queue)}"
-    )
+    job_title = job_item["metadata"].get("title", "Untitled")
+    logger.info(f"Added job '{job_title}' to queue. Queue size: {len(app.batch_queue)}")
     gui_panels.update_queue_display(app)
 
     app._reset_ui_for_new_job()
@@ -385,7 +385,8 @@ def reopen_job_callback(app: "App", job_id: str):
     if app.is_video_loaded and app.input_file_original != job_to_load["input_file"]:
         if not messagebox.askyesno(
             "Load Different Video?",
-            "This job is for a different video file. Loading it will replace the currently loaded video and its settings. Continue?",
+            "This job is for a different video file. Loading it will replace "
+            "the currently loaded video and its settings. Continue?",
             parent=app,
         ):
             return
@@ -397,7 +398,8 @@ def reopen_job_callback(app: "App", job_id: str):
     remove_from_queue_callback(app, job_id)
     app._show_info(
         "Job Loaded",
-        "The selected job's settings have been loaded for editing.\nIt has been removed from The Plan.",
+        "The selected job's settings have been loaded for editing.\n"
+        "It has been removed from The Plan.",
     )
 
 

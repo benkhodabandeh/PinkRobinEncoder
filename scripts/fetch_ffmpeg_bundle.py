@@ -17,12 +17,15 @@ removed per project requirements.
 
 from __future__ import annotations
 
+import logging
 import platform
 import shutil
 import subprocess
 import sys
 import zipfile
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 ROOT = Path(__file__).resolve().parent.parent
 BIN = ROOT / "bin"
@@ -68,7 +71,9 @@ def main() -> int:
     tmp_zip = ROOT / "ffmpeg-windows.zip"
     try:
         repo = _repo_arg()
-        run_id = subprocess.check_output(
+        # gh was resolved via shutil.which/PATH above; all args are fixed
+        # flags plus a numeric run ID validated below - never user input.
+        run_id = subprocess.check_output(  # nosec B603 - fixed gh binary, fixed args  # noqa: S603
             [
                 gh, "run", "list", "--workflow", "build-ffmpeg.yml",
                 "--status", "success", "--limit", "1",
@@ -78,9 +83,9 @@ def main() -> int:
             cwd=str(ROOT),
             text=True,
         ).strip()
-        if not run_id:
+        if not run_id or not run_id.isdigit():
             raise subprocess.CalledProcessError(1, [gh, "run", "list"])
-        subprocess.check_call(
+        subprocess.check_call(  # nosec B603 - fixed gh binary, validated numeric run ID  # noqa: S603
             [
                 gh, "run", "download", run_id, "--name", "ffmpeg-windows",
                 "--dir", str(ROOT), "--repo", repo,
@@ -113,9 +118,13 @@ def _repo_arg() -> str:
         if arg == "--repo" and i + 1 < len(sys.argv):
             return sys.argv[i + 1]
     # Auto-detect from git remote so forks/renames work with no flags.
+    git_exe = shutil.which("git")
+    if git_exe is None:
+        print("git not on PATH; using default repo.", file=sys.stderr)
+        return "benkhodabandeh/BKVideoEncoder"
     try:
-        url = subprocess.check_output(
-            ["git", "remote", "get-url", "origin"],
+        url = subprocess.check_output(  # nosec B603 - fixed git binary, fixed args  # noqa: S603
+            [git_exe, "remote", "get-url", "origin"],
             cwd=str(ROOT),
             text=True,
         ).strip()
@@ -124,7 +133,7 @@ def _repo_arg() -> str:
         if path.count("/") == 1:
             return path
     except Exception:
-        pass
+        logger.debug("git remote detection failed; using default repo.")
     return "benkhodabandeh/BKVideoEncoder"
 
 

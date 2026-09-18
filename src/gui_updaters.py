@@ -6,18 +6,18 @@ typically via the application's UI update queue. They are responsible
 for all visual changes in response to application state.
 """
 
-import os
 import logging
-from typing import TYPE_CHECKING, Dict, Any, Optional, List, Tuple
+import os
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from app import App
 
-import config
 import analysis
-import utils
-import ui_components
+import config
 import gui_callbacks
+import ui_components
+import utils
 
 if analysis.HAS_PILLOW:
     from PIL import Image, ImageTk
@@ -36,7 +36,7 @@ def handle_status_update(app: "App", message: str) -> None:
         status_label.configure(text=display_message)
 
 
-def handle_encoding_progress_update(app: "App", progress_data: Dict[str, Any]) -> None:
+def handle_encoding_progress_update(app: "App", progress_data: dict[str, Any]) -> None:
     if app.is_preparing:
         return
 
@@ -130,7 +130,7 @@ def display_welcome_screen(app: "App") -> None:
     )
 
 
-def display_preview_image(app: "App", image_path: Optional[str]) -> None:
+def display_preview_image(app: "App", image_path: str | None) -> None:
     if not (preview_canvas := app._get_widget("preview_canvas")):
         return
     preview_canvas.delete("all")
@@ -280,7 +280,7 @@ def update_quality_slider(app: "App"):
 # --- Data Display Updaters ---
 
 
-def handle_set_video_info(app: "App", video_info: Optional[Dict[str, Any]]) -> None:
+def handle_set_video_info(app: "App", video_info: dict[str, Any] | None) -> None:
     app.is_video_loaded = bool(video_info)
     if video_info:
         app.input_file_info = video_info
@@ -313,7 +313,7 @@ def handle_set_source_material(app: "App", source_material: str) -> None:
     update_source_slider(app)
 
 
-def handle_set_metadata_from_dict(app: "App", meta_dict: Dict[str, str]):
+def handle_set_metadata_from_dict(app: "App", meta_dict: dict[str, str]):
     app.metadata = meta_dict.copy()
     for field, value in meta_dict.items():
         if entry_ref := app.widget_refs.get("meta_entries", {}).get(field):
@@ -322,7 +322,7 @@ def handle_set_metadata_from_dict(app: "App", meta_dict: Dict[str, str]):
                 entry.insert(0, value)
 
 
-def handle_set_metadata_from_filename(app: "App", parsed_meta: Dict[str, str]):
+def handle_set_metadata_from_filename(app: "App", parsed_meta: dict[str, str]):
     for field, value in parsed_meta.items():
         if entry_ref := app.widget_refs.get("meta_entries", {}).get(field):
             if entry := app._get_widget(entry_ref):
@@ -334,7 +334,7 @@ def handle_set_metadata_from_filename(app: "App", parsed_meta: Dict[str, str]):
 
 
 def handle_set_preview_stills(
-    app: "App", paths_colors_tuple: Tuple[List[str], Dict[str, List[str]]]
+    app: "App", paths_colors_tuple: tuple[list[str], dict[str, list[str]]]
 ) -> None:
     app.preview_stills_paths, app.preview_stills_colors = paths_colors_tuple
     if app.preview_stills_paths:
@@ -349,7 +349,7 @@ def handle_set_preview_stills(
 
 
 def handle_update_single_preview(
-    app: "App", index_path_colors_tuple: Tuple[int, str, Optional[List[str]]]
+    app: "App", index_path_colors_tuple: tuple[int, str, list[str] | None]
 ) -> None:
     index, new_path, new_colors = index_path_colors_tuple
     if 0 <= index < len(app.preview_stills_paths):
@@ -364,7 +364,7 @@ def handle_update_single_preview(
     app._update_ui_state()
 
 
-def handle_update_all_preview_colors(app: "App", colors_map: Dict[str, List[str]]):
+def handle_update_all_preview_colors(app: "App", colors_map: dict[str, list[str]]):
     logger.info("Applying color palettes to preview stills.")
     app.preview_stills_colors = colors_map
     if (
@@ -395,7 +395,7 @@ def update_estimates_display(
     bitrate_kbits: float,
     size_mb: float,
     time_s: float,
-    crf_val: Optional[str],
+    crf_val: str | None,
 ):
     labels = app.widget_refs.get("estimates_labels", {})
     if size_label := app._get_widget(labels.get("size")):
@@ -427,9 +427,9 @@ def update_estimates_display(
         time_label.configure(text=time_text)
 
 
-def handle_error_message(app: "App", title_message_tuple: Tuple[str, str]):
+def handle_error_message(app: "App", title_message_tuple: tuple[str, str]):
     app._show_error(title_message_tuple[0], title_message_tuple[1])
 
 
-def handle_warning_message(app: "App", title_message_tuple: Tuple[str, str]):
+def handle_warning_message(app: "App", title_message_tuple: tuple[str, str]):
     app._show_warning(title_message_tuple[0], title_message_tuple[1])

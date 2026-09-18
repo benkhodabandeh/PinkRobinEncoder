@@ -5,23 +5,24 @@ process execution, filename parsing, and other helper tasks.
 """
 
 import json
-import os
-import subprocess
-import re
 import logging
-import shlex
-import time
-import sys
-import shutil
+import os
 import platform
-import signal
-import threading
 import queue
+import re
+import shlex
+import shutil
+import signal
+import subprocess
+import sys
 import tempfile
-from datetime import datetime, timedelta
-from typing import Optional, List, Tuple, Dict, Any, Callable
-import urllib.request
+import threading
+import time
 import urllib.error
+import urllib.request
+from collections.abc import Callable
+from datetime import datetime, timedelta
+from typing import Any
 
 import config
 
@@ -29,7 +30,7 @@ logger = logging.getLogger(__name__)
 
 
 # --- Process Safety Helpers ---
-def _prepare_long_running_cmd(cmd: List[str]) -> List[str]:
+def _prepare_long_running_cmd(cmd: list[str]) -> list[str]:
     """Return a safer FFmpeg/FFprobe command.
 
     FFmpeg can read from stdin by default. In GUI apps that can cause rare hangs,
@@ -48,7 +49,7 @@ def _prepare_long_running_cmd(cmd: List[str]) -> List[str]:
 # --- Path and Settings Management ---
 
 
-def find_resource_path(resource_name: str) -> Optional[str]:
+def find_resource_path(resource_name: str) -> str | None:
     """Finds a resource file in bundled or local development environments."""
     search_paths = []
     if hasattr(sys, "_MEIPASS"):
@@ -63,7 +64,7 @@ def find_resource_path(resource_name: str) -> Optional[str]:
         search_paths.append(os.path.join(project_root, "src", resource_name))
         search_paths.append(os.path.join(project_root, resource_name))
     except Exception:
-        pass
+        logger.debug("argv-based resource lookup unavailable; using PATH only.")
 
     for path in search_paths:
         if os.path.exists(path):
@@ -80,7 +81,7 @@ def find_resource_path(resource_name: str) -> Optional[str]:
     return None
 
 
-def get_executable_path(exe_base_name: str) -> Optional[str]:
+def get_executable_path(exe_base_name: str) -> str | None:
     """Caches and returns the full path to an executable to avoid repeated searches."""
     exe_name = config.get_platform_exe_name(exe_base_name)
     cache_key = f"_{exe_name}_path_cache"
@@ -91,12 +92,12 @@ def get_executable_path(exe_base_name: str) -> Optional[str]:
     return found_path
 
 
-def get_ffmpeg_path() -> Optional[str]:
+def get_ffmpeg_path() -> str | None:
     """Gets the full path to the FFmpeg executable."""
     return get_executable_path(config.FFMPEG_EXE_BASE)
 
 
-def get_ffprobe_path() -> Optional[str]:
+def get_ffprobe_path() -> str | None:
     """Gets the full path to the FFprobe executable."""
     return get_executable_path(config.FFPROBE_EXE_BASE)
 
@@ -120,25 +121,25 @@ def get_app_settings_path() -> str:
     return os.path.join(documents_path, config.APP_SETTINGS_FILENAME)
 
 
-def load_app_settings() -> Dict[str, Any]:
+def load_app_settings() -> dict[str, Any]:
     """Loads application settings from a JSON file."""
     settings_path = get_app_settings_path()
     try:
         if os.path.exists(settings_path):
-            with open(settings_path, "r", encoding="utf-8") as f:
+            with open(settings_path, encoding="utf-8") as f:
                 return json.load(f)
-    except (json.JSONDecodeError, IOError) as e:
+    except (OSError, json.JSONDecodeError) as e:
         logger.warning(f"Could not load settings file at {settings_path}: {e}")
     return {}
 
 
-def save_app_settings(settings: Dict[str, Any]):
+def save_app_settings(settings: dict[str, Any]):
     """Saves application settings to a JSON file."""
     settings_path = get_app_settings_path()
     try:
         with open(settings_path, "w", encoding="utf-8") as f:
             json.dump(settings, f, indent=4)
-    except IOError as e:
+    except OSError as e:
         logger.error(f"Could not save settings file to {settings_path}: {e}")
 
 
@@ -158,8 +159,8 @@ def sanitize_filename_component(
 
 
 def generate_output_path(
-    base_dir: str, meta: Dict[str, str], container: str
-) -> Tuple[Optional[str], Optional[str]]:
+    base_dir: str, meta: dict[str, str], container: str
+) -> tuple[str | None, str | None]:
     """
     Generates the output folder and full video filepath based on metadata.
     """
@@ -216,7 +217,7 @@ def get_resolution_name(width: int, height: int) -> str:
     return f"{height}p"
 
 
-def generate_stills_path(base_dir: str, meta: Dict[str, str]) -> str:
+def generate_stills_path(base_dir: str, meta: dict[str, str]) -> str:
     title = sanitize_filename_component(meta.get("title"), True, "Video")
     artist = sanitize_filename_component(meta.get("artist"), True, "")
     year = meta.get("year", "")
@@ -229,7 +230,7 @@ def generate_stills_path(base_dir: str, meta: Dict[str, str]) -> str:
     return os.path.join(base_dir, sanitized_folder_name)
 
 
-def parse_filename_for_metadata(filepath: str) -> Dict[str, str]:
+def parse_filename_for_metadata(filepath: str) -> dict[str, str]:
     if not filepath:
         return {"title": "", "year": ""}
     filename = os.path.splitext(os.path.basename(filepath))[0]
@@ -242,14 +243,17 @@ def parse_filename_for_metadata(filepath: str) -> Dict[str, str]:
         if 1880 < year <= current_year + 5:
             meta["year"] = str(year)
             title_candidate = filename[: year_match.start()]
-    tags_pattern = r"(?i)[\s._-](1080p|720p|2160p|4k|uhd|fhd|hd|bluray|web-dl|webrip|x264|x265|h265|hevc|aac|dts|ac3|5\.1|7\.1)[\s._-]"
+    tags_pattern = (
+        r"(?i)[\s._-](1080p|720p|2160p|4k|uhd|fhd|hd|bluray|web-dl|webrip"
+        r"|x264|x265|h265|hevc|aac|dts|ac3|5\.1|7\.1)[\s._-]"
+    )
     title_candidate = re.sub(tags_pattern, " ", title_candidate, flags=re.VERBOSE)
     title = " ".join(title_candidate.replace(".", " ").replace("_", " ").split())
     meta["title"] = title.strip() or "Untitled"
     return meta
 
 
-def dict_to_cmd_list(options: Dict[str, str]) -> List[str]:
+def dict_to_cmd_list(options: dict[str, str]) -> list[str]:
     cmd_list = []
     for key, value in options.items():
         cmd_list.extend([f"-{key}", str(value)])
@@ -278,7 +282,7 @@ def _format_eta(seconds: float) -> str:
     return f"{h:02d}:{m:02d}:{s:02d}"
 
 
-def _parse_time_to_seconds(time_str: Optional[Any]) -> float:
+def _parse_time_to_seconds(time_str: Any | None) -> float:
     if not time_str:
         return 0.0
     try:
@@ -307,7 +311,7 @@ def _format_bytes(size_bytes: int) -> str:
 
 def get_aspect_aware_scale_filter(
     source_w: int, source_h: int, target_res_name: str, target_w_override: int = 0
-) -> Tuple[str, int, int]:
+) -> tuple[str, int, int]:
     if not all(isinstance(val, int) and val > 0 for val in [source_w, source_h]):
         return "", source_w, source_h
     if target_w_override > 0:
@@ -322,7 +326,8 @@ def get_aspect_aware_scale_filter(
         target_w, target_h = target_res["width"], target_res["height"]
     if not target_w_override and (source_w <= target_w and source_h <= target_h):
         logger.info(
-            f"Output resolution target ({target_res_name}) is not smaller than source. No scaling will be applied."
+            f"Output resolution target ({target_res_name}) is not smaller "
+            "than source. No scaling will be applied."
         )
         return "", source_w, source_h
     w_ratio, h_ratio = target_w / source_w, target_h / source_h
@@ -339,7 +344,7 @@ def get_aspect_aware_scale_filter(
 
 def get_aspect_ratio_crop_filter(
     source_w: int, source_h: int, aspect_ratio_str: str
-) -> Tuple[str, int, int]:
+) -> tuple[str, int, int]:
     try:
         target_ar = float(aspect_ratio_str.split(" ")[0])
     except (ValueError, IndexError):
@@ -368,9 +373,9 @@ def get_aspect_ratio_crop_filter(
 
 def calculate_video_bitrate(
     pid: str,
-    preset_config: Dict,
-    source_info: Dict,
-    job_item: Dict,
+    preset_config: dict,
+    source_info: dict,
+    job_item: dict,
     out_w: int,
     out_h: int,
 ) -> int:
@@ -412,7 +417,7 @@ def calculate_video_bitrate(
     return int(base_kbps)
 
 
-def run_quick_process(cmd: List[str], process_description: str) -> Tuple[int, str, str]:
+def run_quick_process(cmd: list[str], process_description: str) -> tuple[int, str, str]:
     """Runs a short-lived subprocess and captures its output."""
     cmd = _prepare_long_running_cmd(cmd)
     cmd_str = " ".join(shlex.quote(c) for c in cmd)
@@ -428,7 +433,9 @@ def run_quick_process(cmd: List[str], process_description: str) -> Tuple[int, st
                 subprocess, "CREATE_NEW_PROCESS_GROUP", 0
             )
 
-        process = subprocess.run(
+        # cmd is an internally built arg list (fixed ffmpeg path + validated
+        # options); shell is never used.
+        process = subprocess.run(  # nosec B603 - internal argv, no shell  # noqa: S603
             cmd,
             capture_output=True,
             text=True,
@@ -448,15 +455,15 @@ def run_quick_process(cmd: List[str], process_description: str) -> Tuple[int, st
 
 
 def run_process(
-    cmd: List[str],
-    duration: Optional[float] = None,
-    total_frames: Optional[int] = None,
-    progress_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
+    cmd: list[str],
+    duration: float | None = None,
+    total_frames: int | None = None,
+    progress_callback: Callable[[dict[str, Any]], None] | None = None,
     process_description: str = "FFmpeg Process",
-    process_holder: Optional[List[subprocess.Popen]] = None,
-    cancel_flag_func: Optional[Callable[[], bool]] = None,
-    cwd: Optional[str] = None,
-) -> Tuple[int, str, str]:
+    process_holder: list[subprocess.Popen] | None = None,
+    cancel_flag_func: Callable[[], bool] | None = None,
+    cwd: str | None = None,
+) -> tuple[int, str, str]:
     cmd = _prepare_long_running_cmd(cmd)
     cmd_str, progress_cmd = " ".join(shlex.quote(c) for c in cmd), cmd
     logger.info(f"Running ({process_description}): {cmd_str}")
@@ -473,7 +480,7 @@ def run_process(
         try:
             for line in iter(stream.readline, ""):
                 q.put(line)
-        except (IOError, ValueError):
+        except (OSError, ValueError):
             pass
         finally:
             if stream and not stream.closed:
@@ -489,7 +496,9 @@ def run_process(
             )
             startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
             startupinfo.wShowWindow = subprocess.SW_HIDE
-        process = subprocess.Popen(
+        # progress_cmd is derived from the internally built cmd list
+        # (fixed ffmpeg path + validated options); shell is never used.
+        process = subprocess.Popen(  # nosec B603 - internal argv, no shell  # noqa: S603
             progress_cmd,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -622,7 +631,8 @@ def run_process(
         stderr_str = "".join(full_stderr)
         if return_code != 0 and not (cancel_flag_func and cancel_flag_func()):
             logger.error(
-                f"Process '{process_description}' failed with exit code {return_code}. Stderr: {stderr_str.strip()}"
+                f"Process '{process_description}' failed with exit code "
+                f"{return_code}. Stderr: {stderr_str.strip()}"
             )
         return return_code, "", stderr_str
     except Exception as e:
@@ -634,7 +644,7 @@ def run_process(
                 process.kill()
                 process.wait()
             except Exception:
-                pass
+                logger.debug("Force-kill during cleanup raced process exit.")
         if process_holder is not None and process in process_holder:
             try:
                 process_holder.remove(process)
@@ -642,7 +652,7 @@ def run_process(
                 pass
 
 
-def create_temp_directory() -> Optional[str]:
+def create_temp_directory() -> str | None:
     try:
         base_temp_dir = os.path.join(tempfile.gettempdir(), config.TEMP_DIR_BASE)
         session_id = (
@@ -657,15 +667,15 @@ def create_temp_directory() -> Optional[str]:
         return None
 
 
-def cleanup_temp_directory(temp_dir: Optional[str]):
+def cleanup_temp_directory(temp_dir: str | None):
     if temp_dir and os.path.isdir(temp_dir):
         logger.info(f"Cleaning up temporary directory: {temp_dir}")
         shutil.rmtree(temp_dir, ignore_errors=True)
 
 
 def check_for_updates(
-    current_version: str, settings: Dict[str, Any]
-) -> Optional[Dict[str, Any]]:
+    current_version: str, settings: dict[str, Any]
+) -> dict[str, Any] | None:
     from packaging.version import parse as parse_version
 
     now_iso, last_check = (
@@ -679,12 +689,17 @@ def check_for_updates(
         return None
     settings["update_last_check"] = now_iso
     logger.info(f"Checking for updates. Current version: {current_version}")
+    if not config.UPDATE_URL.startswith("https://"):
+        logger.warning("Refusing update check: UPDATE_URL is not https.")
+        save_app_settings(settings)
+        return None
     try:
-        req = urllib.request.Request(
+        # UPDATE_URL is a hardcoded https constant (config.py), asserted above.
+        req = urllib.request.Request(  # nosec B310 - fixed https URL  # noqa: S310
             config.UPDATE_URL,
             headers={"User-Agent": f"{config.APP_NAME}/{current_version}"},
         )
-        with urllib.request.urlopen(req, timeout=5) as response:
+        with urllib.request.urlopen(req, timeout=5) as response:  # nosec B310 - fixed https URL  # noqa: S310
             if response.status == 200:
                 data = json.loads(response.read().decode("utf-8"))
                 latest_version = data.get("tag_name", "").lstrip("v")
@@ -723,18 +738,18 @@ def get_perf_log_path() -> str:
     return os.path.join(doc_path, config.PERFORMANCE_LOG_FILENAME)
 
 
-def read_perf_log() -> List[Dict[str, Any]]:
+def read_perf_log() -> list[dict[str, Any]]:
     log_path = get_perf_log_path()
     if not os.path.exists(log_path):
         return []
     try:
-        with open(log_path, "r", encoding="utf-8") as f:
+        with open(log_path, encoding="utf-8") as f:
             return json.load(f)
-    except (IOError, json.JSONDecodeError):
+    except (OSError, json.JSONDecodeError):
         return []
 
 
-def write_perf_log(perf_data: Dict[str, Any]):
+def write_perf_log(perf_data: dict[str, Any]):
     records = read_perf_log()
     records.append(perf_data)
     if len(records) > 100:
@@ -743,11 +758,11 @@ def write_perf_log(perf_data: Dict[str, Any]):
     try:
         with open(get_perf_log_path(), "w", encoding="utf-8") as f:
             json.dump(records, f, indent=4)
-    except IOError as e:
+    except OSError as e:
         logger.error(f"Failed to write to performance log: {e}")
 
 
-def get_time_estimate(job_item: Dict[str, Any], out_w: int, out_h: int) -> float:
+def get_time_estimate(job_item: dict[str, Any], out_w: int, out_h: int) -> float:
     records = read_perf_log()
     if not records:
         return 0.0

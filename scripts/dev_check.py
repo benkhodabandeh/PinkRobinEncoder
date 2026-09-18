@@ -10,7 +10,9 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def run(cmd: list[str], required: bool = True) -> int:
     print("> " + " ".join(cmd))
-    proc = subprocess.run(cmd, cwd=ROOT)
+    # Developer-invoked fixed tool commands only (compileall, ruff, pytest);
+    # never user input, never shell=True.
+    proc = subprocess.run(cmd, cwd=ROOT)  # nosec B603 - fixed dev-tool argv  # noqa: S603
     if required and proc.returncode != 0:
         raise SystemExit(proc.returncode)
     return proc.returncode

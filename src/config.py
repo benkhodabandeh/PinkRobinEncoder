@@ -169,7 +169,8 @@ STANDARD_PRESETS = {
     "THE_CAPO": {
         "name": "The Capo",
         "output_name": "Theatrical",
-        "description": "CRF-based high-quality theatrical master. Compatible with all players. Uses slow preset for best quality.",
+        "description": "CRF-based high-quality theatrical master. Compatible with all players. "
+            "Uses slow preset for best quality.",
         "container": ".mp4",
         "video_codec": "libx264",
         "rate_control_mode": "crf",
@@ -186,17 +187,22 @@ STANDARD_PRESETS = {
         "pix_fmt_8bit": "yuv420p",
         "source_material_tuning": {
             "common": "keyint=360:min-keyint=1",
-            "clean": "-x264-params {common}:bframes=8:ref=8:aq-mode=1:psy-rd=0.8:0.1:deblock=-1,-1:mbtree=1:qcomp=0.9:merange=48",
-            "modern": "-x264-params {common}:bframes=8:ref=8:aq-mode=1:aq-strength=1.1:psy-rd=1.0:0.15:deblock=-1,-1:mbtree=1:qcomp=0.9:merange=48",
-            "film": "-x264-params {common}:bframes=8:ref=8:aq-mode=1:aq-strength=1.2:psy-rd=1.1:0.2:no-deblock=1:mbtree=1:qcomp=0.9:merange=48",
-            "animation": "-x264-params {common}:bframes=10:ref=10:deblock=1,1:psy-rd=0.4:0.0:aq-mode=1:aq-strength=0.7:mbtree=1:qcomp=0.9:merange=48",
+            "clean": "-x264-params {common}:bframes=8:ref=8:aq-mode=1:psy-rd=0.8:0.1:deblock=-1,-1:"
+                "mbtree=1:qcomp=0.9:merange=48",
+            "modern": "-x264-params {common}:bframes=8:ref=8:aq-mode=1:aq-strength=1.1:psy-rd=1.0:"
+                "0.15:deblock=-1,-1:mbtree=1:qcomp=0.9:merange=48",
+            "film": "-x264-params {common}:bframes=8:ref=8:aq-mode=1:aq-strength=1.2:psy-rd=1.1:"
+                "0.2:no-deblock=1:mbtree=1:qcomp=0.9:merange=48",
+            "animation": "-x264-params {common}:bframes=10:ref=10:deblock=1,1:psy-rd=0.4:0.0:"
+                "aq-mode=1:aq-strength=0.7:mbtree=1:qcomp=0.9:merange=48",
         },
     },
     # 'The Archivist' - Pushes x264 to its absolute limits for maximum quality/bitrate. VERY SLOW.
     "THE_SOLDIER": {
         "name": "The Soldier",
         "output_name": "Web.x264",
-        "description": "2-pass ABR web encode with predictable size and quality. Pushes x264 to its limits for maximum quality/bitrate. VERY SLOW.",
+        "description": "2-pass ABR web encode with predictable size and quality. Pushes x264 to "
+            "its limits for maximum quality/bitrate. VERY SLOW.",
         "container": ".mp4",
         "video_codec": "libx264",
         "rate_control_mode": "2pass_abr",
@@ -212,11 +218,16 @@ STANDARD_PRESETS = {
         "denoise_filter": "nlmeans=s=1:p=3:r=5",
         "sharpen_filter": "cas=strength=0.1",
         "source_material_tuning": {
-            "common": "keyint=360:min-keyint=1:subme=11:merange=48:trellis=2:b-adapt=2:bframes=16:ref=16:rc-lookahead=60:qcomp=0.9:mbtree=1",
-            "clean": "-tune fastdecode -x264-params {common}:aq-mode=3:psy-rd=1.0:0.15:deblock=-1,-1",
-            "modern": "-tune fastdecode -x264-params {common}:aq-mode=3:aq-strength=1.1:psy-rd=1.0:0.15:deblock=-1,-1",
-            "film": "-tune grain -x264-params {common}:aq-mode=3:aq-strength=1.3:psy-rd=1.2:0.2:no-deblock=1:ipratio=1.1",
-            "animation": "-tune animation -x264-params {common}:aq-mode=2:deblock=1,1:psy-rd=0.4:0.0:aq-strength=0.7",
+            "common": "keyint=360:min-keyint=1:subme=11:merange=48:trellis=2:b-adapt=2:bframes=16:"
+                "ref=16:rc-lookahead=60:qcomp=0.9:mbtree=1",
+            "clean": "-tune fastdecode -x264-params {common}:aq-mode=3:psy-rd=1.0:0.15:"
+                "deblock=-1,-1",
+            "modern": "-tune fastdecode -x264-params {common}:aq-mode=3:aq-strength=1.1:psy-rd=1.0:"
+                "0.15:deblock=-1,-1",
+            "film": "-tune grain -x264-params {common}:aq-mode=3:aq-strength=1.3:psy-rd=1.2:0.2:"
+                "no-deblock=1:ipratio=1.1",
+            "animation": "-tune animation -x264-params {common}:aq-mode=2:deblock=1,1:psy-rd=0.4:"
+                "0.0:aq-strength=0.7",
         },
     },
     # 'The Phantom' - Pushes x265 to its limits for maximum 10-bit quality/bitrate. VERY SLOW.
@@ -240,11 +251,15 @@ STANDARD_PRESETS = {
         "sharpen_filter": "cas.strength=0.1",
         "source_material_tuning": {
             # Re-tuned for stability and quality. Enabled slow-firstpass.
-            "common_x265_params": "rd=4:rdoq-level=2:aq-mode=3:b-adapt=2:rc-lookahead=80:subme=5:keyint=360:slow-firstpass=1",
+            "common_x265_params": "rd=4:rdoq-level=2:aq-mode=3:b-adapt=2:rc-lookahead=80:subme=5:"
+                "keyint=360:slow-firstpass=1",
             "clean": "-tune fastdecode -x265-params {common}:psy-rd=1.5:psy-rdoq=1.0",
-            "modern": "-tune fastdecode -x265-params {common}:psy-rd=2.0:psy-rdoq=1.5:aq-strength=1.1",
-            "film": "-tune grain -x265-params {common}:psy-rd=2.0:psy-rdoq=1.0:aq-strength=1.2:deblock=-1,-1",
-            "animation": "-tune animation -x265-params {common}:bframes=12:deblock=1,1:psy-rd=0.4:aq-strength=0.7",
+            "modern": "-tune fastdecode -x265-params {common}:psy-rd=2.0:psy-rdoq=1.5:"
+                "aq-strength=1.1",
+            "film": "-tune grain -x265-params {common}:psy-rd=2.0:psy-rdoq=1.0:aq-strength=1.2:"
+                "deblock=-1,-1",
+            "animation": "-tune animation -x265-params {common}:bframes=12:deblock=1,1:psy-rd=0.4:"
+                "aq-strength=0.7",
         },
     },
 }
@@ -273,15 +288,18 @@ FAST_PRESETS = {
         "size_denoise_filter": "nlmeans=s=1:p=3:r=5",
         "size_sharpen_filter": "cas=strength=0.1",
         "source_material_tuning": {
-            "common": "-x264-params keyint=360:min-keyint=1:bframes=3:ref=3:aq-mode=1:psy-rd=1.0:0.15:deblock=-1,-1:mbtree=1:qcomp=0.9:merange=48",
-            "animation": "-x264-params keyint=360:min-keyint=1:bframes=6:ref=5:deblock=1,1:psy-rd=0.4:0.0:aq-mode=1:aq-strength=0.7:mbtree=1:qcomp=0.9:merange=48",
+            "common": "-x264-params keyint=360:min-keyint=1:bframes=3:ref=3:aq-mode=1:psy-rd=1.0:"
+                "0.15:deblock=-1,-1:mbtree=1:qcomp=0.9:merange=48",
+            "animation": "-x264-params keyint=360:min-keyint=1:bframes=6:ref=5:deblock=1,1:"
+                "psy-rd=0.4:0.0:aq-mode=1:aq-strength=0.7:mbtree=1:qcomp=0.9:merange=48",
         },
     },
     # CRF-based for very fast, efficient 10-bit x265 encodes.
 "THE_ROCKET": {
         "name": "The Rocket",
         "output_name": "Fast.x265",
-        "description": "CRF-based very fast, efficient 10-bit x265 encode. Faster preset for efficient exports.",
+        "description": "CRF-based very fast, efficient 10-bit x265 encode. Faster preset for "
+            "efficient exports.",
         "container": ".mp4",
         "video_codec": "libx265",
         "rate_control_mode": "crf",
@@ -296,10 +314,13 @@ FAST_PRESETS = {
         "denoise_filter": "nlmeans=s=1:p=3:r=5",
         "sharpen_filter": "cas.strength=0.1",
         "source_material_tuning": {
-            "common_x265_params": "rd=4:rdoq-level=1:aq-mode=3:qg-size=8:b-adapt=2:rc-lookahead=80:subme=5:keyint=360:hist-scenecut=1:scenecut-aware-qp=1:merange=64:aq-strength=1.2:slow-firstpass=0",
+            "common_x265_params": "rd=4:rdoq-level=1:aq-mode=3:qg-size=8:b-adapt=2:rc-lookahead=80:"
+                "subme=5:keyint=360:hist-scenecut=1:scenecut-aware-qp=1:merange=64:aq-strength=1.2:"
+                "slow-firstpass=0",
             "clean": "-x265-params {common}:psy-rd=1.2:psy-rdoq=1.0:ipratio=1.1",
             "modern": "-x265-params {common}:psy-rd=1.8:psy-rdoq=1.8:ipratio=1.1",
-            "film": "-x265-params {common}:psy-rd=2.2:psy-rdoq=4.0:deblock=-2,-2:no-cutree=1:ipratio=1.1",
+            "film": "-x265-params {common}:psy-rd=2.2:psy-rdoq=4.0:deblock=-2,-2:no-cutree=1:"
+                "ipratio=1.1",
             "animation": "-x265-params {common}:bframes=10:deblock=1,1:psy-rd=0.4:aq-strength=0.7",
         },
     },
@@ -311,7 +332,8 @@ WORKFLOW_PRESETS = {
 "THE_HEIST": {
         "name": "The Heist",
         "output_name": "Social",
-        "description": "CRF-based preset optimized for vertical social media (e.g., Instagram Reels). 1080p vertical output with slow preset for quality.",
+        "description": "CRF-based preset optimized for vertical social media (e.g., Instagram "
+            "Reels). 1080p vertical output with slow preset for quality.",
         "container": ".mp4",
         "video_codec": "libx264",
         "rate_control_mode": "2pass_abr",
@@ -330,14 +352,16 @@ WORKFLOW_PRESETS = {
         "denoise_filter": "nlmeans=s=1:p=3:r=5",
         "sharpen_filter": "cas.strength=0.8",
         "source_material_tuning": {
-            "common": "-x264-params bframes=3:b-adapt=2:ref=4:aq-mode=1:aq-strength=1.2:psy-rd=1.1:0.25:mbtree=1:qcomp=0.9:merange=48:keyint=360:min-keyint=1"
+            "common": "-x264-params bframes=3:b-adapt=2:ref=4:aq-mode=1:aq-strength=1.2:psy-rd=1.1:"
+                "0.25:mbtree=1:qcomp=0.9:merange=48:keyint=360:min-keyint=1"
         },
     },
     # ABR-based preset for targeting a specific output file size.
 "THE_JOB": {
         "name": "The Job",
         "output_name": "Target_MB",
-        "description": "ABR-based preset for targeting a specific output file size. Exact target-size encodes with 2-pass ABR.",
+        "description": "ABR-based preset for targeting a specific output file size. Exact "
+            "target-size encodes with 2-pass ABR.",
         "container": ".mp4",
         "rate_control_mode": "2pass_abr",
         "default_target_mb": 199,

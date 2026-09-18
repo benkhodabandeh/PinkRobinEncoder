@@ -14,8 +14,8 @@ import queue
 import signal
 import time
 import types
-from typing import Any, Dict, Optional
 from collections import deque
+from typing import Any
 
 import customtkinter as ctk
 
@@ -66,7 +66,7 @@ def _process_ui_queue(self: Any) -> None:
     frame_start = time.perf_counter()
     processed = 0
     batch_limit = getattr(self, "_ui_queue_batch_limit", UI_QUEUE_BATCH_LIMIT)
-    
+
     try:
         while processed < batch_limit:
             callback = self.ui_update_queue.get_nowait()
@@ -83,7 +83,7 @@ def _process_ui_queue(self: Any) -> None:
     frame_time_ms = (time.perf_counter() - frame_start) * 1000
     if hasattr(self, "_ui_frame_times"):
         self._ui_frame_times.append(frame_time_ms)
-    
+
     # Adaptive batching: reduce batch limit if frames are slow
     if frame_time_ms > TARGET_FRAME_MS * 2 and batch_limit > 8:
         self._ui_queue_batch_limit = max(8, batch_limit - 4)
@@ -94,18 +94,18 @@ def _process_ui_queue(self: Any) -> None:
     try:
         if not self.winfo_exists():
             return
-            
+
         # Use burst mode for high queue depth, idle mode otherwise
         queue_depth = self.ui_update_queue.qsize()
         if queue_depth > 10:
             delay = getattr(self, "_ui_queue_burst_tick_ms", UI_QUEUE_BURST_TICK_MS)
         else:
             delay = getattr(self, "_ui_queue_idle_tick_ms", UI_QUEUE_IDLE_TICK_MS)
-        
+
         # Adjust delay based on frame time
         if frame_time_ms > TARGET_FRAME_MS:
             delay = min(delay + 2, UI_QUEUE_IDLE_TICK_MS)
-        
+
         self.after(delay, self._process_ui_queue)
     except Exception:
         logger.debug(
@@ -113,9 +113,11 @@ def _process_ui_queue(self: Any) -> None:
         )
 
 
-def _request_estimate_update(self: Any, delay_ms: int = ESTIMATE_DEBOUNCE_MS, fast: bool = False) -> None:
+def _request_estimate_update(
+    self: Any, delay_ms: int = ESTIMATE_DEBOUNCE_MS, fast: bool = False
+) -> None:
     """Debounce expensive estimate recalculation during typing/slider moves.
-    
+
     Args:
         delay_ms: Base debounce delay in milliseconds
         fast: If True, use fast debounce for rapid user interactions
@@ -124,7 +126,7 @@ def _request_estimate_update(self: Any, delay_ms: int = ESTIMATE_DEBOUNCE_MS, fa
         if getattr(self, "_estimate_after_id", None):
             self.after_cancel(self._estimate_after_id)
     except Exception:
-        pass
+        logger.debug("Estimate debounce cancel raced timer completion.")
 
     # Adaptive debounce: use faster debounce for rapid changes
     if fast or getattr(self, "_adaptive_debounce", True):
@@ -139,10 +141,13 @@ def _request_estimate_update(self: Any, delay_ms: int = ESTIMATE_DEBOUNCE_MS, fa
 
 
 def _request_preview_refresh(
-    self: Any, image_path: Optional[str] = None, delay_ms: int = PREVIEW_DEBOUNCE_MS, fast: bool = False
+    self: Any,
+    image_path: str | None = None,
+    delay_ms: int = PREVIEW_DEBOUNCE_MS,
+    fast: bool = False,
 ) -> None:
     """Debounce preview redraws when crop fields/sliders change.
-    
+
     Args:
         image_path: Path to the preview image
         delay_ms: Base debounce delay in milliseconds
@@ -152,7 +157,7 @@ def _request_preview_refresh(
         if getattr(self, "_preview_after_id", None):
             self.after_cancel(self._preview_after_id)
     except Exception:
-        pass
+        logger.debug("Preview debounce cancel raced timer completion.")
 
     # Adaptive debounce: use faster debounce for drag operations
     if fast or getattr(self, "_adaptive_debounce", True):
@@ -178,7 +183,7 @@ def _show_toast(self: Any, title: str, message: str, duration_ms: int = 2400) ->
         if getattr(self, "_active_toast", None) and self._active_toast.winfo_exists():
             self._active_toast.destroy()
     except Exception:
-        pass
+        logger.debug("Previous toast was already destroyed.")
 
     try:
         toast = ctk.CTkToplevel(self)
@@ -219,7 +224,7 @@ def _show_toast(self: Any, title: str, message: str, duration_ms: int = 2400) ->
 
             gui_updaters.handle_status_update(self, f"{title}: {message}")
         except Exception:
-            pass
+            logger.debug("Toast status fallback failed; window is closing.")
 
 
 def _terminate_process_tree(
@@ -245,7 +250,7 @@ def _terminate_process_tree(
             process.wait(timeout=PROCESS_CANCEL_GRACE_SEC)
             return
         except Exception:
-            pass
+            logger.debug("Process ignored graceful terminate; escalating to kill.")
         if process.poll() is None:
             process.kill()
             logger.warning("Killed unresponsive %s PID %s", description, pid)
@@ -253,16 +258,16 @@ def _terminate_process_tree(
         logger.exception("Failed to terminate %s PID %s", description, pid)
 
 
-def _get_performance_stats(self: Any) -> Dict[str, Any]:
+def _get_performance_stats(self: Any) -> dict[str, Any]:
     """Get current UI performance statistics for debugging/monitoring."""
     frame_times = list(getattr(self, "_ui_frame_times", []))
     if not frame_times:
         return {"status": "no_data"}
-    
+
     avg_frame_ms = sum(frame_times) / len(frame_times)
     max_frame_ms = max(frame_times)
     fps = 1000 / avg_frame_ms if avg_frame_ms > 0 else 0
-    
+
     return {
         "avg_frame_ms": round(avg_frame_ms, 2),
         "max_frame_ms": round(max_frame_ms, 2),

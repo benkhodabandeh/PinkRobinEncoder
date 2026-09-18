@@ -5,31 +5,31 @@ Pink Robin Encoder. This module consolidates logic for standard presets and
 specialized workflows into a single, robust system.
 """
 
-import os
 import logging
-import subprocess
-import config
-import utils
-import shlex
-import time
+import os
 import re
-from typing import Dict, Any, Callable, List, Tuple, Optional
-from gui_support import OperationCancelledError
+import shlex
+import subprocess
+import time
+from collections.abc import Callable
+from typing import Any
 
-logger = logging.getLogger(__name__)
-
-
-# --- Optional PySceneDetect Import - required for scene detection ---
-from scenedetect import open_video, SceneManager, SceneList
+# --- PySceneDetect Import - required for scene detection ---
+from scenedetect import SceneList, SceneManager, open_video
 from scenedetect.detectors import ContentDetector
 
+import config
+import utils
+from gui_support import OperationCancelledError
+
 HAS_PYSCENEDETECT = True
+logger = logging.getLogger(__name__)
 logger.info("PySceneDetect library found. Advanced scene detection enabled.")
 
 
 def get_scenecut_qp_filepath(
-    job: Dict[str, Any], threshold: float, cancel_flag_func: Callable[[], bool]
-) -> Optional[str]:
+    job: dict[str, Any], threshold: float, cancel_flag_func: Callable[[], bool]
+) -> str | None:
     """
     Uses PySceneDetect to find scene changes and generates a qpfile for FFmpeg.
     Returns the path to the generated qpfile.
@@ -47,7 +47,8 @@ def get_scenecut_qp_filepath(
         scene_manager.add_detector(ContentDetector(threshold=threshold))
 
         logger.info(
-            f"PySceneDetect: Analyzing '{os.path.basename(video_path)}' with threshold {threshold}..."
+            f"PySceneDetect: Analyzing '{os.path.basename(video_path)}' "
+            f"with threshold {threshold}..."
         )
 
         scene_manager.detect_scenes(video=video)
@@ -67,7 +68,7 @@ def get_scenecut_qp_filepath(
         )
 
         with open(qp_filepath, "w") as qp_file:
-            for i, scene in enumerate(scene_list):
+            for scene in scene_list:
                 start_frame = scene[0].get_frames()
                 if start_frame > 0:
                     qp_file.write(f"{start_frame} I -1\n")
@@ -84,8 +85,8 @@ def get_scenecut_qp_filepath(
 
 
 def build_video_filter_chain(
-    job: Dict[str, Any], preset_conf: Dict[str, Any]
-) -> Tuple[str, int, int]:
+    job: dict[str, Any], preset_conf: dict[str, Any]
+) -> tuple[str, int, int]:
     info = job["input_file_info"]
     source_w, source_h = info["width"], info["height"]
     v_filters = []
@@ -111,7 +112,8 @@ def build_video_filter_chain(
                 source_w, source_h = int(parts[0]), int(parts[1])
         except (ValueError, IndexError) as e:
             logger.warning(
-                f"Invalid or incomplete custom crop string '{crop_str_from_job}', ignoring. Error: {e}"
+                f"Invalid custom crop string '{crop_str_from_job}', "
+                f"ignoring. Error: {e}"
             )
 
     elif crop_mode not in ["None", "Custom", "Auto-Detect"]:
@@ -183,7 +185,7 @@ def build_video_filter_chain(
     return ",".join(filter(None, v_filters)), out_w, out_h
 
 
-def _build_audio_filter_chain(job: Dict[str, Any]) -> str:
+def _build_audio_filter_chain(job: dict[str, Any]) -> str:
     if (
         source_sr := job["input_file_info"]
         .get("audio_stream", {})
@@ -196,14 +198,14 @@ def _build_audio_filter_chain(job: Dict[str, Any]) -> str:
 
 
 def _build_pass_command(
-    job: Dict,
+    job: dict,
     pass_num: int,
     total_passes: int,
-    video_opts: List[str],
-    audio_opts: List[str],
+    video_opts: list[str],
+    audio_opts: list[str],
     vf_str: str,
     af_str: str,
-) -> List[str]:
+) -> list[str]:
     is_final_pass = pass_num == total_passes
     info = job["input_file_info"]
 
@@ -280,28 +282,28 @@ def _build_pass_command(
 
 
 def _execute_encode(
-    job: Dict[str, Any],
+    job: dict[str, Any],
     total_passes: int,
-    video_opts_base: List[str],
-    audio_opts: List[str],
+    video_opts_base: list[str],
+    audio_opts: list[str],
     vf_str: str,
     af_str: str,
-    progress_callback: Callable[[Dict[str, Any]], None],
-    process_holder: List[subprocess.Popen],
+    progress_callback: Callable[[dict[str, Any]], None],
+    process_holder: list[subprocess.Popen],
     cancel_flag_func: Callable[[], bool],
-) -> Tuple[bool, float]:
+) -> tuple[bool, float]:
     info = job.get("input_file_info", {})
     if not info:
         logger.error("Job missing input_file_info")
         return False, 0.0
-    
+
     start_time = time.monotonic()
 
     ffmpeg_exe_path = utils.get_ffmpeg_path()
     if not ffmpeg_exe_path:
         logger.error("FFmpeg executable not found")
         return False, 0.0
-        
+
     ffmpeg_cwd = os.path.dirname(ffmpeg_exe_path) if ffmpeg_exe_path else None
 
     for pass_num in range(1, total_passes + 1):
@@ -337,8 +339,15 @@ def _execute_encode(
             job, pass_num, total_passes, video_opts, audio_opts, vf_str, af_str
         )
 
-        def pass_progress_wrapper(p_data: Dict[str, Any]) -> None:
-            base_prog = (100.0 / total_passes) * (pass_num - 1)
+        # Bind loop variables as defaults: the wrapper outlives the
+        # iteration via run_process callbacks, so late binding would mix
+        # pass numbers across passes.
+        def pass_progress_wrapper(
+            p_data: dict[str, Any],
+            _pass_num: int = pass_num,
+            _desc: str = desc,
+        ) -> None:
+            base_prog = (100.0 / total_passes) * (_pass_num - 1)
             range_prog = 100.0 / total_passes
 
             try:
@@ -349,7 +358,7 @@ def _execute_encode(
             p_data["overall_progress"] = base_prog + (
                 current_pass_progress * (range_prog / 100.0)
             )
-            p_data["job_description"] = desc
+            p_data["job_description"] = _desc
             if callable(progress_callback):
                 progress_callback(p_data)
 
@@ -364,7 +373,7 @@ def _execute_encode(
                 cancel_flag_func=cancel_flag_func,
                 cwd=ffmpeg_cwd,
             )
-        except Exception as e:
+        except Exception:
             logger.exception(f"Process execution failed for {desc}")
             return False, 0.0
 
@@ -390,11 +399,11 @@ def _execute_encode(
 
 
 def run_job(
-    job: Dict,
+    job: dict,
     progress_callback: Callable,
-    process_holder: List,
+    process_holder: list,
     cancel_flag_func: Callable,
-) -> Tuple[bool, float]:
+) -> tuple[bool, float]:
     preset_id = job.get("preset_id")
     preset_conf = (
         config.STANDARD_PRESETS.get(preset_id)
@@ -500,7 +509,8 @@ def run_job(
         crf_value = preset_conf.get("crf_levels", {}).get(quality_level, 20)
         video_opts.extend(["-crf", str(crf_value)])
         logger.info(
-            f"CRF encode selected for '{preset_id}'. Quality: '{quality_level}', CRF Value: {crf_value}"
+            f"CRF encode selected for '{preset_id}'. "
+            f"Quality: '{quality_level}', CRF Value: {crf_value}"
         )
 
     elif rate_control_mode == "2pass_abr":

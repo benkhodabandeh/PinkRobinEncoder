@@ -1,7 +1,7 @@
 """Unit tests for input validation and security hardening."""
 
-import validators
 import config
+import validators
 
 
 def test_validate_year():

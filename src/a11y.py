@@ -58,13 +58,13 @@ def add_focus_ring(widget: Any, ring_color: str = FOCUS_RING_COLOR) -> None:
             try:
                 w.configure(border_width=FOCUS_RING_WIDTH, border_color=ring_color)
             except Exception:
-                pass
+                logger.debug("Focus ring could not be drawn on this widget.")
 
         def _on_focus_out(_event=None, w=widget):
             try:
                 w.configure(**normal_border, border_color=config.Theme.SURFACE_LIGHT)
             except Exception:
-                pass
+                logger.debug("Focus ring could not be cleared on this widget.")
 
         widget.bind("<FocusIn>", _on_focus_in, add="+")
         widget.bind("<FocusOut>", _on_focus_out, add="+")

@@ -5,23 +5,24 @@ These tasks perform long-running operations like video analysis, encoding,
 and still generation, queuing UI updates to the main thread.
 """
 
+import copy
 import logging
 import os
 import time
 import uuid
-import copy
+from collections.abc import Callable
 from datetime import datetime
-from typing import TYPE_CHECKING, Dict, Any, List, Optional, Callable
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from app import App
 
-import config
 import analysis
-import utils
+import config
 import encoding
-from gui_support import OperationCancelledError
 import gui_updaters
+import utils
+from gui_support import OperationCancelledError
 
 logger = logging.getLogger(__name__)
 
@@ -61,8 +62,10 @@ def load_video_task(app: "App") -> None:
         info = analysis.get_video_info(filepath)
     except Exception as e:
         logger.exception(f"Video analysis failed for {filepath}")
-        _safe_ui_update(app, lambda: gui_updaters.handle_error_message(
-            app, ("File Error", f"Analysis failed: {e}")
+        # Bind via default arg: the except variable is deleted after the
+        # block, so a bare closure over `e` would raise NameError when run.
+        _safe_ui_update(app, lambda _err=e: gui_updaters.handle_error_message(
+            app, ("File Error", f"Analysis failed: {_err}")
         ))
         return
 
@@ -159,7 +162,7 @@ def reload_single_preview_task(app: "App", index_to_replace: int):
         )
 
 
-def _generate_final_stills(app: "App", job_item: Dict[str, Any]) -> int:
+def _generate_final_stills(app: "App", job_item: dict[str, Any]) -> int:
     """Generates final, uncompressed stills from the source using preview timestamps."""
     if not (timestamps := app.preview_stills_timestamps):
         logger.warning("No preview timestamps available to generate final stills.")
@@ -238,7 +241,7 @@ def generate_final_stills_task(app: "App"):
         )
 
 
-def create_job_item_from_current_state(app: "App") -> Optional[Dict[str, Any]]:
+def create_job_item_from_current_state(app: "App") -> dict[str, Any] | None:
     """
     Creates a job item by reading DIRECTLY from the UI widgets,
     making the UI the single source of truth and preventing override bugs.
@@ -280,7 +283,7 @@ def create_job_item_from_current_state(app: "App") -> Optional[Dict[str, Any]]:
     }
 
 
-def run_development_batch_task(app: "App", jobs_to_process: List[Dict[str, Any]]):
+def run_development_batch_task(app: "App", jobs_to_process: list[dict[str, Any]]):
     """The main background task, now with robust, detailed progress tracking."""
     start_time_batch = time.monotonic()
 
@@ -360,19 +363,28 @@ def run_development_batch_task(app: "App", jobs_to_process: List[Dict[str, Any]]
         job_item["job_num_str"] = f"{i + 1}/{total_encodes}"
         job_item["temp_dir"] = app.app_temp_dir
 
-        # The progress callback now has much more context
-        def progress_callback(progress_data):
+        # The progress callback now has much more context.
+        # Loop variables are bound as defaults: the callback outlives the
+        # iteration via run_process, so late binding would mix job ETAs.
+        def progress_callback(
+            progress_data,
+            _i=i,
+            _job_item=job_item,
+            _job_start_time=job_start_time,
+            _elapsed_so_far=time_elapsed_so_far,
+            _preset_conf=preset_conf,
+        ):
             # --- Overall Batch Progress Calculation ---
-            progress_from_completed = (i / total_encodes) * 100.0
+            progress_from_completed = (_i / total_encodes) * 100.0
             progress_this_job = (
                 progress_data.get("overall_progress", 0.0) / total_encodes
             )
             total_batch_progress = progress_from_completed + progress_this_job
 
             # --- ETA Calculation ---
-            time_for_this_job = job_item.get("estimated_time", 0)
+            time_for_this_job = _job_item.get("estimated_time", 0)
             progress_of_this_job = progress_data.get("overall_progress", 0.0) / 100.0
-            time_elapsed_this_job = time.monotonic() - job_start_time
+            time_elapsed_this_job = time.monotonic() - _job_start_time
 
             if progress_of_this_job > 0.01:  # Use real data once available
                 estimated_total_time_this_job = (
@@ -386,14 +398,14 @@ def run_development_batch_task(app: "App", jobs_to_process: List[Dict[str, Any]]
             )
 
             time_for_future_jobs = (
-                total_estimated_time_s - time_elapsed_so_far - time_for_this_job
+                total_estimated_time_s - _elapsed_so_far - time_for_this_job
             )
             total_eta_s = time_remaining_this_job + time_for_future_jobs
 
             # Pass all the rich data to the UI updater
             progress_data["total_eta_str"] = utils._format_eta(total_eta_s)
-            progress_data["job_description"] = preset_conf.get("output_name", "Encode")
-            progress_data["job_num_str"] = f"({i + 1}/{total_encodes})"
+            progress_data["job_description"] = _preset_conf.get("output_name", "Encode")
+            progress_data["job_num_str"] = f"({_i + 1}/{total_encodes})"
 
             # Use the new overall progress for the progress bar
             progress_data["overall_progress"] = total_batch_progress
@@ -417,7 +429,8 @@ def run_development_batch_task(app: "App", jobs_to_process: List[Dict[str, Any]]
             if cancel_flag_func():
                 raise OperationCancelledError("Encode cancelled.")
             raise RuntimeError(
-                f"Encoding failed for job '{job_desc}' with preset '{job_item['preset_id']}'. Check logs for details."
+                f"Encoding failed for job '{job_desc}' with preset "
+                f"'{job_item['preset_id']}'. Check logs for details."
             )
         else:
             total_outputs += 1

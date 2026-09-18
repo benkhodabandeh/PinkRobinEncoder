@@ -5,29 +5,30 @@ Provides a themed interface for multi-threaded VMAF score calculation
 with real-time progress metrics and a final compression report.
 """
 
-import tkinter as tk
-from tkinter import filedialog, messagebox
-import customtkinter as ctk
-import subprocess
-import threading
+import logging
 import os
 import re
-import logging
-import uuid
 import shlex
-from typing import Optional, Dict, TYPE_CHECKING, List, Any
+import subprocess
+import threading
+import tkinter as tk
+import uuid
+from tkinter import filedialog, messagebox
+from typing import TYPE_CHECKING, Any
+
+import customtkinter as ctk
 
 if TYPE_CHECKING:
     from app import App
 
+import analysis
 import config
 import utils
-import analysis
 from gui_support import OperationCancelledError
 
 logger = logging.getLogger(__name__)
 
-_libvmaf_support_cache: Optional[bool] = None
+_libvmaf_support_cache: bool | None = None
 
 
 def _check_libvmaf_support() -> bool:
@@ -94,10 +95,10 @@ class QCToolWindow(ctk.CTkToplevel):
 
         self.is_calculating: bool = False
         self.cancel_requested: bool = False
-        self.process_holder: List[subprocess.Popen] = []
-        self.vmaf_model_path: Optional[str] = None
-        self.ffmpeg_path: Optional[str] = None
-        self.temp_upscaled_file: Optional[str] = None
+        self.process_holder: list[subprocess.Popen] = []
+        self.vmaf_model_path: str | None = None
+        self.ffmpeg_path: str | None = None
+        self.temp_upscaled_file: str | None = None
 
         self._create_widgets()
         self._check_prerequisites()
@@ -314,7 +315,7 @@ class QCToolWindow(ctk.CTkToplevel):
         )
         self.txt_output.grid(row=2, column=0, pady=(10, 0), sticky="nsew")
 
-    def _update_progress_ui(self, progress_data: Dict[str, Any]):
+    def _update_progress_ui(self, progress_data: dict[str, Any]):
         if not self.winfo_exists():
             return
         progress_val = progress_data.get("progress", 0.0) / 100.0
@@ -439,7 +440,7 @@ class QCToolWindow(ctk.CTkToplevel):
         self.txt_output.configure(state="disabled")
 
     def update_score_indicator(
-        self, score: Optional[float], subtitle: Optional[str] = None
+        self, score: float | None, subtitle: str | None = None
     ):
         text_color, emoji = config.Theme.TEXT_PRIMARY, "🤔"
         sub_text = subtitle if subtitle is not None else "Load videos and click REVIEW"
@@ -503,8 +504,12 @@ class QCToolWindow(ctk.CTkToplevel):
             ):
                 self._log_message("Resolution mismatch detected.")
                 msg = (
-                    f"Resolutions do not match:\n  Reference: {ref_info['width']}x{ref_info['height']}\n  Encoded:   {dist_info['width']}x{dist_info['height']}\n\n"
-                    f"For an accurate VMAF score, the encoded video must be upscaled to match the reference. This will create a temporary, high-quality file.\n\nDo you want to proceed?"
+                    f"Resolutions do not match:\n  Reference: {ref_info['width']}"
+                    f"x{ref_info['height']}\n  Encoded:   {dist_info['width']}"
+                    f"x{dist_info['height']}\n\n"
+                    "For an accurate VMAF score, the encoded video must be "
+                    "upscaled to match the reference. This will create a "
+                    "temporary, high-quality file.\n\nDo you want to proceed?"
                 )
                 if messagebox.askyesno("Resolution Mismatch", msg, parent=self):
                     self._run_upscale_task(dist_path, ref_path, ref_info)
@@ -571,7 +576,7 @@ class QCToolWindow(ctk.CTkToplevel):
             self._log_message(f"❌ Upscaling failed: {e}")
             self.after(0, lambda: self._ui_toggle_calculating(False))
 
-    def _run_vmaf_task(self, ref_path: str, dist_path: str, ref_info: Dict[str, Any]):
+    def _run_vmaf_task(self, ref_path: str, dist_path: str, ref_info: dict[str, Any]):
         self.after(0, lambda: self._ui_toggle_calculating(True, "Calculating VMAF..."))
         vmaf_score, stderr_output = None, ""
         try:
@@ -587,10 +592,17 @@ class QCToolWindow(ctk.CTkToplevel):
             )
             escaped_log_path = utils.escape_ffmpeg_path_for_filter(vmaf_log_path)
 
-            # *** FIX: Changed 'model_path=' to the correct 'model=path=' syntax ***
-            libvmaf_options = f"model=path='{model_filename}':log_path={escaped_log_path}:log_fmt=json:n_threads={config.VMAF_NUM_THREADS}"
+            # model=path= is the correct libvmaf option syntax.
+            libvmaf_options = (
+                f"model=path='{model_filename}':log_path={escaped_log_path}"
+                f":log_fmt=json:n_threads={config.VMAF_NUM_THREADS}"
+            )
 
-            filter_string = f"[0:v]setpts=PTS-STARTPTS[dist];[1:v]setpts=PTS-STARTPTS[ref];[dist][ref]libvmaf={libvmaf_options}"
+            filter_string = (
+                "[0:v]setpts=PTS-STARTPTS[dist];"
+                "[1:v]setpts=PTS-STARTPTS[ref];"
+                f"[dist][ref]libvmaf={libvmaf_options}"
+            )
             command = [
                 self.ffmpeg_path,
                 "-hide_banner",

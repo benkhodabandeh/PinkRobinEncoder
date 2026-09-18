@@ -16,7 +16,6 @@ from __future__ import annotations
 import os
 import re
 from datetime import datetime
-from typing import Dict, Optional, Tuple
 
 MAX_TEXT_LEN = 200
 MAX_PATH_LEN = 260  # Windows MAX_PATH (classic); long-path aware code paths exist
@@ -30,7 +29,7 @@ def _strip_controls(value: str) -> str:
     return _CONTROL_CHARS_RE.sub("", value)
 
 
-def validate_title(value: object) -> Tuple[str, Optional[str]]:
+def validate_title(value: object) -> tuple[str, str | None]:
     text = _strip_controls(str(value or "")).strip()
     if not text:
         return "", "Title is required."
@@ -39,14 +38,14 @@ def validate_title(value: object) -> Tuple[str, Optional[str]]:
     return text, None
 
 
-def validate_artist(value: object) -> Tuple[str, Optional[str]]:
+def validate_artist(value: object) -> tuple[str, str | None]:
     text = _strip_controls(str(value or "")).strip()
     if len(text) > MAX_TEXT_LEN:
         return text[:MAX_TEXT_LEN], f"Artist truncated to {MAX_TEXT_LEN} characters."
     return text, None
 
 
-def validate_year(value: object) -> Tuple[str, Optional[str]]:
+def validate_year(value: object) -> tuple[str, str | None]:
     text = _strip_controls(str(value or "")).strip()
     if not text:
         return "", "Year is required."
@@ -59,17 +58,17 @@ def validate_year(value: object) -> Tuple[str, Optional[str]]:
     return text, None
 
 
-def validate_syndicate(value: object) -> Tuple[str, Optional[str]]:
+def validate_syndicate(value: object) -> tuple[str, str | None]:
     text = _strip_controls(str(value or "")).strip()
     if len(text) > MAX_TEXT_LEN:
         return text[:MAX_TEXT_LEN], f"Syndicate truncated to {MAX_TEXT_LEN} characters."
     return text, None
 
 
-def validate_metadata_dict(raw: Dict[str, object]) -> Tuple[Dict[str, str], Dict[str, str]]:
+def validate_metadata_dict(raw: dict[str, object]) -> tuple[dict[str, str], dict[str, str]]:
     """Validate the four user metadata fields. Returns (clean, errors)."""
-    clean: Dict[str, str] = {}
-    errors: Dict[str, str] = {}
+    clean: dict[str, str] = {}
+    errors: dict[str, str] = {}
     validators = {
         "title": validate_title,
         "artist": validate_artist,
@@ -89,7 +88,7 @@ def validate_metadata_key(key: str) -> bool:
     return bool(_METADATA_KEY_RE.match(key or ""))
 
 
-def validate_crop_string(value: object) -> Tuple[str, Optional[str]]:
+def validate_crop_string(value: object) -> tuple[str, str | None]:
     """Validate a custom crop string of the form w:h:x:y."""
     text = _strip_controls(str(value or "")).strip().removeprefix("crop=")
     if not text:
@@ -107,7 +106,7 @@ def validate_crop_string(value: object) -> Tuple[str, Optional[str]]:
     return f"{w}:{h}:{x}:{y}", None
 
 
-def validate_target_mb(value: object, default: float = 199.0) -> Tuple[float, Optional[str]]:
+def validate_target_mb(value: object, default: float = 199.0) -> tuple[float, str | None]:
     try:
         number = float(str(value).strip())
     except (ValueError, TypeError, AttributeError):
@@ -119,7 +118,7 @@ def validate_target_mb(value: object, default: float = 199.0) -> Tuple[float, Op
     return round(number), None
 
 
-def validate_input_video_path(path: object) -> Tuple[str, Optional[str]]:
+def validate_input_video_path(path: object) -> tuple[str, str | None]:
     """Validate a user-selected source video path (guards path traversal)."""
     text = _strip_controls(str(path or "")).strip()
     if not text:
@@ -139,7 +138,7 @@ def validate_input_video_path(path: object) -> Tuple[str, Optional[str]]:
     return norm, None
 
 
-def validate_destination_dir(path: object) -> Tuple[str, Optional[str]]:
+def validate_destination_dir(path: object) -> tuple[str, str | None]:
     text = _strip_controls(str(path or "")).strip()
     if not text:
         return "", "No folder selected."

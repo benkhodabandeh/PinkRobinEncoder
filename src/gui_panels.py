@@ -5,11 +5,12 @@ This module is responsible for the 'view' component of the application's layout,
 placing widgets into parent frames provided by the main App class.
 """
 
-import customtkinter as ctk
-import weakref
 import logging
 import os
+import weakref
 from typing import TYPE_CHECKING
+
+import customtkinter as ctk
 
 if TYPE_CHECKING:
     from app import App

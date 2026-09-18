@@ -29,7 +29,8 @@ def main() -> int:
         file=sys.stderr,
     )
     fetcher = Path(__file__).resolve().parent / "fetch_ffmpeg_bundle.py"
-    return subprocess.call([sys.executable, str(fetcher)])
+    # Fixed interpreter + fixed in-repo script path; no user input, no shell.
+    return subprocess.call([sys.executable, str(fetcher)])  # nosec B603 - fixed argv  # noqa: S603
 
 
 if __name__ == "__main__":
