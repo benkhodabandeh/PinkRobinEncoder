@@ -105,24 +105,20 @@ def _repo_arg() -> str:
     for i, arg in enumerate(sys.argv):
         if arg == "--repo" and i + 1 < len(sys.argv):
             return sys.argv[i + 1]
-    # Auto-detect from git remote so forks/renames work with no flags.
     git_exe = shutil.which("git")
-    if git_exe is None:
-        print("git not on PATH; using default repo.", file=sys.stderr)
-return "benkhodabandeh/PinkRobinEncoder"
-    try:
-        url = subprocess.check_output(  # nosec B603 - fixed git binary, fixed args  # noqa: S603
-            [git_exe, "remote", "get-url", "origin"],
-            cwd=str(ROOT),
-            text=True,
-        ).strip()
-        # Supports https://github.com/OWNER/REPO(.git) and git@github.com:OWNER/REPO(.git)
-        path = url.split("github.com", 1)[1].lstrip("/:").removesuffix(".git")
-        if path.count("/") == 1:
-            return path
-    except Exception:
-        logger.debug("git remote detection failed; using default repo.")
-    return "benkhodabandeh/BKVideoEncoder"
+    if git_exe is not None:
+        try:
+            url = subprocess.check_output(  # nosec B603  # noqa: S603
+                [git_exe, "remote", "get-url", "origin"],
+                cwd=str(ROOT),
+                text=True,
+            ).strip()
+            path = url.split("github.com", 1)[1].lstrip("/:").removesuffix(".git")
+            if path.count("/") == 1:
+                return path
+        except Exception:
+            logger.debug("git remote detection failed; using default repo.")
+    return "benkhodabandeh/PinkRobinEncoder"
 
 
 def _find_successful_run_id(gh: str, repo: str) -> str | None:
