@@ -24,8 +24,10 @@ if (-not $gh) {
     $toolsDir = Join-Path $repoRoot ".tools"
     New-Item -ItemType Directory -Force -Path $toolsDir | Out-Null
     $latest = Invoke-RestMethod "https://api.github.com/repos/cli/cli/releases/latest"
-    $tag = $latest.tag_name.TrimStart("v")
-    $zipUrl = "https://github.com/cli/cli/releases/download/v$tag/gh_${tag}_windows-amd64.zip"
+    $asset = @($latest.assets | Where-Object { $_.name -like "*windows*amd64.zip" })[0]
+    if (-not $asset) { throw "No windows-amd64 gh asset found in latest release." }
+    Write-Host "Latest gh: $($latest.tag_name) ($($asset.name))"
+    $zipUrl = $asset.browser_download_url
     $zipPath = Join-Path $toolsDir "gh.zip"
     Invoke-WebRequest -Uri $zipUrl -OutFile $zipPath
     Expand-Archive -Path $zipPath -DestinationPath (Join-Path $toolsDir "gh") -Force
