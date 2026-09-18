@@ -1,0 +1,39 @@
+name: Build custom FFmpeg (Windows)
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - scripts/build_ffmpeg_windows.sh
+      - .github/workflows/build-ffmpeg.yml
+
+jobs:
+  build-ffmpeg:
+    name: MSYS2 MinGW64 custom FFmpeg
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up MSYS2 (MinGW64)
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: git
+
+      - name: Build tailored FFmpeg
+        run: bash scripts/build_ffmpeg_windows.sh
+
+      - name: Package bin/
+        shell: pwsh
+        run: Compress-Archive -Path bin/* -DestinationPath ffmpeg-windows.zip
+
+      - name: Upload ffmpeg-windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ffmpeg-windows
+          path: ffmpeg-windows.zip
+          retention-days: 30

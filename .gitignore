@@ -1,0 +1,34 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+venv/
+.venv/
+
+# Build
+build/
+dist/
+*.spec
+
+# Project settings/logs
+wge_settings.json
+BKVideoEncoder_Logs/
+
+# Binaries (not in source repo; CI downloads them)
+bin/
+!bin/vmaf_v0.6.1.json
+
+# Local offline wheel cache (see pip troubleshooting)
+wheels/
+
+# Archives
+*.zip
+*.tar.gz
+*.7z
+
+# Editor / tool config
+opencode.json
+.vscode/
+.idea/
+*.swp
+*.swo

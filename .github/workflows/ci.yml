@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint-test-security:
+    name: Lint / Typecheck / Test / Security (Windows)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt -r requirements-dev.txt
+
+      - name: Compile check
+        run: python -m compileall -q src
+
+      - name: Ruff lint
+        run: python -m ruff check src scripts tests
+
+      - name: Mypy typecheck
+        run: python -m mypy src
+
+      - name: Bandit security lint
+        run: python -m bandit -q -r src
+
+      - name: Pytest with coverage
+        run: python -m pytest -q
+
+      - name: pip-audit (fail on HIGH/CRITICAL)
+        run: python -m pip_audit --desc --local --disable-pip
+
+      - name: SBOM (CycloneDX)
+        run: cyclonedx-py environment --output-file sbom.json --output-format JSON
+
+      - name: Upload SBOM
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom
+          path: sbom.json
