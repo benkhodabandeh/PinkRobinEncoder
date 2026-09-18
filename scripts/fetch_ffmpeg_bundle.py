@@ -71,9 +71,9 @@ def main() -> int:
     tmp_zip = ROOT / "ffmpeg-windows.zip"
     try:
         repo = _repo_arg()
-        # gh was resolved via shutil.which/PATH above; all args are fixed
-        # flags plus a numeric run ID validated below - never user input.
-        run_id = subprocess.check_output(  # nosec B603 - fixed gh binary, fixed args  # noqa: S603
+        # gh resolved via shutil.which; all args fixed flags plus a validated
+        # numeric run ID - never user input.
+        run_id = subprocess.check_output(  # nosec B603  # noqa: S603
             [
                 gh, "run", "list", "--workflow", "build-ffmpeg.yml",
                 "--status", "success", "--limit", "1",
@@ -85,7 +85,7 @@ def main() -> int:
         ).strip()
         if not run_id or not run_id.isdigit():
             raise subprocess.CalledProcessError(1, [gh, "run", "list"])
-        subprocess.check_call(  # nosec B603 - fixed gh binary, validated numeric run ID  # noqa: S603
+        subprocess.check_call(  # nosec B603  # noqa: S603
             [
                 gh, "run", "download", run_id, "--name", "ffmpeg-windows",
                 "--dir", str(ROOT), "--repo", repo,

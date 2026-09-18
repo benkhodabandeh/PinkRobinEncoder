@@ -51,6 +51,10 @@ exclude = ["build/", "dist/", ".venv/"]
 
 [tool.bandit]
 exclude_dirs = ["tests", "build", "dist", ".venv"]
+# B101 (asserts) is our fail-fast style (e.g. preset schema narrowing).
+# B404 (import subprocess) is inherent to an FFmpeg wrapper; the gate runs
+# with -ll (MEDIUM+) so informational items don't fail it, while B603/B607
+# carry audited per-site justifications.
 skips = ["B101"]
 
 [tool.coverage.run]

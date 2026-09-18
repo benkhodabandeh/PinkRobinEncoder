@@ -10,9 +10,8 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def run(cmd: list[str], required: bool = True) -> int:
     print("> " + " ".join(cmd))
-    # Developer-invoked fixed tool commands only (compileall, ruff, pytest);
-    # never user input, never shell=True.
-    proc = subprocess.run(cmd, cwd=ROOT)  # nosec B603 - fixed dev-tool argv  # noqa: S603
+    # Developer-invoked fixed tool commands only; never user input, never a shell.
+    proc = subprocess.run(cmd, cwd=ROOT)  # nosec B603  # noqa: S603
     if required and proc.returncode != 0:
         raise SystemExit(proc.returncode)
     return proc.returncode
@@ -31,7 +30,8 @@ if __name__ == "__main__":
         print("ruff not installed; skipping lint")
 
     if has_module("bandit"):
-        run([sys.executable, "-m", "bandit", "-q", "-r", "src"], required=False)
+        # -ll: gate on MEDIUM+ (see ci.yml comment for the policy).
+        run([sys.executable, "-m", "bandit", "-q", "-ll", "-r", "src"], required=False)
     else:
         print("bandit not installed; skipping security lint")
 

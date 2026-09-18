@@ -8,6 +8,7 @@ placing widgets into parent frames provided by the main App class.
 import logging
 import os
 import weakref
+from collections.abc import Callable
 from typing import TYPE_CHECKING
 
 import customtkinter as ctk
@@ -275,7 +276,7 @@ def _create_slider(
     parent: ctk.CTkFrame,
     title: str,
     options: list,
-    command: callable,
+    command: Callable[..., None],
     slider_ref_key: str,
     label_ref_key: str,
     row: int,

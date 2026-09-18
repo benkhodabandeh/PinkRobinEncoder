@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 # Removed: if analysis.HAS_PILLOW: pass  # No longer needed - Pillow is required
 
 
-def _safe_ui_update(app: "App", callback: Callable[[], None]) -> bool:
+def _safe_ui_update(app: "App", callback: Callable[[], Any]) -> bool:
     """Safely queue a UI update, returning True if successful."""
     try:
         if app.winfo_exists():

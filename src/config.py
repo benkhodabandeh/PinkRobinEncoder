@@ -425,6 +425,8 @@ def validate_presets() -> None:
     )
     for group_name, group in groups:
         for pid, preset in group.items():
+            # Preset dicts are heterogeneous; narrow for typed access below.
+            assert isinstance(preset, dict)
             if pid in seen:
                 problems.append(f"Duplicate preset id: {pid}")
             seen.add(pid)

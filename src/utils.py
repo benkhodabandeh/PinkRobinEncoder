@@ -147,7 +147,7 @@ def save_app_settings(settings: dict[str, Any]):
 
 
 def sanitize_filename_component(
-    name: str, allow_spaces: bool = True, fallback: str = "Untitled"
+    name: str | None, allow_spaces: bool = True, fallback: str = "Untitled"
 ) -> str:
     """Removes illegal characters from a string for use in a filename or directory."""
     if not name or not isinstance(name, str):
@@ -303,10 +303,11 @@ def _format_bytes(size_bytes: int) -> str:
     power = 1024
     n = 0
     power_labels = {0: "B", 1: "KB", 2: "MB", 3: "GB", 4: "TB"}
-    while size_bytes >= power and n < len(power_labels) - 1:
-        size_bytes /= power
+    size = float(size_bytes)
+    while size >= power and n < len(power_labels) - 1:
+        size /= power
         n += 1
-    return f"{size_bytes:.1f} {power_labels[n]}"
+    return f"{size:.1f} {power_labels[n]}"
 
 
 def get_aspect_aware_scale_filter(
@@ -433,9 +434,9 @@ def run_quick_process(cmd: list[str], process_description: str) -> tuple[int, st
                 subprocess, "CREATE_NEW_PROCESS_GROUP", 0
             )
 
-        # cmd is an internally built arg list (fixed ffmpeg path + validated
-        # options); shell is never used.
-        process = subprocess.run(  # nosec B603 - internal argv, no shell  # noqa: S603
+        # cmd is an internally built arg list (fixed ffmpeg path plus
+        # validated options); a shell is never used.
+        process = subprocess.run(  # nosec B603  # noqa: S603
             cmd,
             capture_output=True,
             text=True,
@@ -474,7 +475,8 @@ def run_process(
 
     start_time = time.monotonic()
 
-    output_queue, process = queue.Queue(), None
+    output_queue: queue.Queue[str] = queue.Queue()
+    process: subprocess.Popen[str] | None = None
 
     def reader_thread(stream, q):
         try:
@@ -496,9 +498,9 @@ def run_process(
             )
             startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
             startupinfo.wShowWindow = subprocess.SW_HIDE
-        # progress_cmd is derived from the internally built cmd list
-        # (fixed ffmpeg path + validated options); shell is never used.
-        process = subprocess.Popen(  # nosec B603 - internal argv, no shell  # noqa: S603
+        # progress_cmd derives from the internally built cmd list
+        # (fixed ffmpeg path plus validated options); no shell is used.
+        process = subprocess.Popen(  # nosec B603  # noqa: S603
             progress_cmd,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -522,7 +524,10 @@ def run_process(
         stdout_thread.start()
         stderr_thread.start()
 
-        full_stderr, progress_data, last_update_time, finished_streams = [], {}, 0, 0
+        full_stderr: list[str] = []
+        progress_data: dict[str, Any] = {}
+        last_update_time: float = 0
+        finished_streams = 0
 
         while finished_streams < 2:
             if cancel_flag_func and cancel_flag_func():
@@ -545,7 +550,8 @@ def run_process(
                     finished_streams += 1
                     continue
                 if "=" in line:
-                    progress_data.update([line.strip().split("=", 1)])
+                    key, _, value = line.strip().partition("=")
+                    progress_data[key] = value
                 else:
                     full_stderr.append(line)
             except queue.Empty:
@@ -695,11 +701,11 @@ def check_for_updates(
         return None
     try:
         # UPDATE_URL is a hardcoded https constant (config.py), asserted above.
-        req = urllib.request.Request(  # nosec B310 - fixed https URL  # noqa: S310
+        req = urllib.request.Request(  # nosec B310  # noqa: S310
             config.UPDATE_URL,
             headers={"User-Agent": f"{config.APP_NAME}/{current_version}"},
         )
-        with urllib.request.urlopen(req, timeout=5) as response:  # nosec B310 - fixed https URL  # noqa: S310
+        with urllib.request.urlopen(req, timeout=5) as response:  # nosec B310  # noqa: S310
             if response.status == 200:
                 data = json.loads(response.read().decode("utf-8"))
                 latest_version = data.get("tag_name", "").lstrip("v")

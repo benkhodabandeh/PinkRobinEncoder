@@ -157,7 +157,7 @@ def display_preview_image(app: "App", image_path: str | None) -> None:
                     pil_image.width, pil_image.height, crop_mode
                 )
 
-            img_to_display = pil_image
+            img_to_display: Image.Image = pil_image
             if crop_filter_str and "crop=" in crop_filter_str:
                 try:
                     parts = crop_filter_str.replace("crop=", "").split(":")

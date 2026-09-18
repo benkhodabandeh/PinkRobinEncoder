@@ -223,7 +223,7 @@ def detect_crop(
         logger.error(f"Crop detection failed for '{os.path.basename(filepath)}'.")
         return None
 
-    crop_counts = {}
+    crop_counts: dict[str, int] = {}
     crop_regex = re.compile(r"crop=(\d+:\d+:\d+:\d+)")
     for line in stderr.strip().splitlines():
         if match := crop_regex.search(line):
@@ -233,7 +233,7 @@ def detect_crop(
     if not crop_counts:
         logger.info("No crop parameters detected.")
         return ""
-    most_common_param = max(crop_counts, key=crop_counts.get)
+    most_common_param = max(crop_counts, key=lambda name: crop_counts[name])
     w_str, h_str, _, _ = most_common_param.split(":")
     if (
         source_w > 0
@@ -278,11 +278,12 @@ def _get_random_timestamps(duration: float, num_stills: int) -> list[float]:
     min_time, max_time = margin, duration - margin
     if max_time <= min_time:
         min_time, max_time = 0.1, duration - 0.1 if duration > 0.1 else duration
-    timestamps = set()
+    timestamps: set[float] = set()
     for _ in range(num_stills * 30):
         if len(timestamps) >= num_stills:
             break
-        timestamps.add(random.uniform(min_time, max_time))  # noqa: S311 - preview timestamps are not security-sensitive
+        # Preview still timestamps are decorative, never cryptographic.
+        timestamps.add(random.uniform(min_time, max_time))  # nosec B311  # noqa: S311
     return sorted(timestamps)
 
 
@@ -432,8 +433,11 @@ def analyze_image_colors(image_path: str, num_colors: int) -> list[str] | None:
             color_counts.sort(reverse=True, key=lambda item: item[0])
             dominant_colors_hex = []
             for _, color_index in color_counts[:num_colors]:
-                idx = color_index * 3
-                r, g, b = palette_rgb_flat[idx : idx + 3]
+                idx = int(color_index) * 3
+                channels = [int(v) for v in palette_rgb_flat[idx : idx + 3]]
+                if len(channels) != 3:
+                    return None
+                r, g, b = channels[0], channels[1], channels[2]
                 dominant_colors_hex.append(f"#{r:02x}{g:02x}{b:02x}")
             return dominant_colors_hex
     except Exception as e:
