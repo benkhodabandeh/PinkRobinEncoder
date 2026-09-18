@@ -36,13 +36,20 @@ REQUIRED_FILES = (
     "ffprobe.exe",
     "libvmaf.dll",
     "libsoxr.dll",
-    "libx264-164.dll",
 )
+
+
+def _has_x264_dll() -> bool:
+    """x264 API version changes with upstream; accept any libx264-*.dll."""
+    return any(BIN.glob("libx264-*.dll"))
 
 
 def bundle_complete() -> list[str]:
     BIN.mkdir(exist_ok=True)
-    return [f for f in REQUIRED_FILES if not (BIN / f).is_file()]
+    missing = [f for f in REQUIRED_FILES if not (BIN / f).is_file()]
+    if not _has_x264_dll():
+        missing.append("libx264-*.dll")
+    return missing
 
 
 def main() -> int:
