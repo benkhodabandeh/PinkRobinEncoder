@@ -494,9 +494,11 @@ echo "  ffprobe.exe $(du -sh "$BIN/ffprobe.exe" 2>/dev/null | cut -f1)"
 echo ""
 
 echo "Testing binaries..."
+ldd "$BIN/ffmpeg.exe" 2>&1 | grep -i "not found" && echo "  ^^^ MISSING DLLs above" || echo "  ldd: all DLLs resolved"
+"$BIN/ffmpeg.exe" -version 2>&1 | head -1
 "$BIN/ffmpeg.exe" -version > /dev/null 2>&1 \
     && echo "  ffmpeg.exe: OK" \
-    || { echo "  ffmpeg.exe: FAILED - DLL issue?"; exit 1; }
+    || { echo "  ffmpeg.exe: FAILED - DLL issue?"; ldd "$BIN/ffmpeg.exe" 2>&1 | grep -i "not found" || true; exit 1; }
 "$BIN/ffprobe.exe" -version > /dev/null 2>&1 \
     && echo "  ffprobe.exe: OK" \
     || { echo "  ffprobe.exe: FAILED - DLL issue?"; exit 1; }
