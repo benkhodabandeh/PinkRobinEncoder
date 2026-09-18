@@ -37,12 +37,23 @@ if (-not $gh) {
 
 # --- 2. Auth (the ONE interactive step; browser/device flow, once ever) -----
 Write-Step "GitHub auth"
-& $gh auth status 2>$null
-if ($LASTEXITCODE -ne 0) {
+$authOk = $false
+try {
+    & $gh auth status 2>$null
+    $authOk = ($LASTEXITCODE -eq 0)
+} catch {
+    $authOk = $false
+}
+if (-not $authOk) {
     Write-Host "Not logged in - starting browser login (one-time) ..." -ForegroundColor Yellow
     & $gh auth login
-    & $gh auth status
-    if ($LASTEXITCODE -ne 0) { Write-Error "Auth failed. Aborting."; exit 1 }
+    try {
+        & $gh auth status 2>$null
+        $authOk = ($LASTEXITCODE -eq 0)
+    } catch {
+        $authOk = $false
+    }
+    if (-not $authOk) { Write-Error "Auth failed. Aborting."; exit 1 }
 }
 $owner = (& $gh api user -q .login).Trim()
 Write-Host "Logged in as: $owner"
@@ -50,8 +61,14 @@ Write-Host "Logged in as: $owner"
 # --- 3. Repo: reuse if it exists, else create -------------------------------
 Write-Step "Repository $owner/$RepoName"
 $repoFull = "$owner/$RepoName"
-& $gh repo view $repoFull --json name 2>$null | Out-Null
-if ($LASTEXITCODE -ne 0) {
+$repoExists = $false
+try {
+    & $gh repo view $repoFull --json name 2>$null | Out-Null
+    $repoExists = ($LASTEXITCODE -eq 0)
+} catch {
+    $repoExists = $false
+}
+if (-not $repoExists) {
     Write-Host "Creating $Visibility repo $repoFull ..."
     & $gh repo create $RepoName --$Visibility --description "Pink Robin Encoder - cinema-grade FFmpeg encoding (Windows)"
 } else {
