@@ -13,10 +13,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python 3.11
+      - name: Set up Python 3.12
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: "3.12"
           cache: pip
 
       - name: Install dependencies
@@ -43,7 +43,7 @@ jobs:
         run: python -m pytest -q
 
       - name: pip-audit (fail on HIGH/CRITICAL)
-        run: python -m pip_audit --desc --local --disable-pip
+        run: python -m pip_audit --desc --local -r requirements.txt
 
       - name: SBOM (CycloneDX)
         run: cyclonedx-py environment --output-file sbom.json --output-format JSON
