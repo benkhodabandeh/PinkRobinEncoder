@@ -381,8 +381,9 @@ echo "  All required libraries present (x264, x265, fdk-aac, soxr, vmaf)."
 SOXR_CFLAGS="-I$BUILD_DIR/soxr-install/include"
 SOXR_LDFLAGS="-L$BUILD_DIR/soxr-install/lib -lsoxr"
 
+FFMPEG_INSTALL="$BUILD_DIR/ffmpeg-install"
 ./configure \
-    --prefix="$BIN" \
+    --prefix="$FFMPEG_INSTALL" \
     --enable-gpl \
     --enable-version3 \
     --enable-nonfree \
@@ -439,6 +440,10 @@ echo ""
 echo "  Building FFmpeg (this takes 5-15 minutes)..."
 make -j"$NPROC"
 make install
+# Copy only the binaries we need from the staging prefix into $BIN.
+mkdir -p "$BIN"
+cp "$FFMPEG_INSTALL/bin/ffmpeg.exe" "$BIN/"
+cp "$FFMPEG_INSTALL/bin/ffprobe.exe" "$BIN/"
 echo "  FFmpeg installed to $BIN."
 
 # ---- Step 8: Copy DLLs + verify ----
