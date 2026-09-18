@@ -190,6 +190,7 @@ rm -rf x265-build && mkdir -p x265-build
 cd x265-build
 cmake -G "Unix Makefiles" \
     "$X265_SRC/source" \
+    -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
     -DCMAKE_INSTALL_PREFIX="$BUILD_DIR/x265-install" \
     -DBUILD_SHARED_LIBS=ON \
     -DENABLE_CLI=OFF \
