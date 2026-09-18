@@ -39,7 +39,7 @@ jobs:
         run: Compress-Archive -Path bin/* -DestinationPath ffmpeg-windows.zip
 
       - name: Upload ffmpeg-windows artifact
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: ffmpeg-windows
           path: ffmpeg-windows.zip
@@ -82,7 +82,7 @@ jobs:
         run: python build.py --skip-tests
 
       - name: Upload portable archive
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: PinkRobinEncoder-windows
           path: dist/*.7z
