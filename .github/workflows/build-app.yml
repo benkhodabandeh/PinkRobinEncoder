@@ -68,7 +68,7 @@ jobs:
         run: python scripts/dev_check.py
 
       - name: Download custom FFmpeg bundle
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v8
         with:
           name: ffmpeg-windows
           path: ${{ runner.temp }}/ffmpeg-bundle
