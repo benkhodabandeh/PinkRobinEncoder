@@ -22,6 +22,7 @@ import platform
 import shutil
 import subprocess
 import sys
+import time
 import zipfile
 from pathlib import Path
 
@@ -67,39 +68,26 @@ def main() -> int:
     # Download the ffmpeg-windows artifact from the latest successful
     # build-ffmpeg workflow run (explicit run ID: `gh run download` without
     # one is interactive and fails in CI).
-    print("Downloading ffmpeg-windows artifact via gh ...")
-    tmp_zip = ROOT / "ffmpeg-windows.zip"
-    try:
-        repo = _repo_arg()
-        # gh resolved via shutil.which; all args fixed flags plus a validated
-        # numeric run ID - never user input.
-        run_id = subprocess.check_output(  # nosec B603  # noqa: S603
-            [
-                gh, "run", "list", "--workflow", "build-ffmpeg.yml",
-                "--status", "success", "--limit", "1",
-                "--json", "databaseId", "--jq", ".[0].databaseId",
-                "--repo", repo,
-            ],
-            cwd=str(ROOT),
-            text=True,
-        ).strip()
-        if not run_id or not run_id.isdigit():
-            raise subprocess.CalledProcessError(1, [gh, "run", "list"])
-        subprocess.check_call(  # nosec B603  # noqa: S603
-            [
-                gh, "run", "download", run_id, "--name", "ffmpeg-windows",
-                "--dir", str(ROOT), "--repo", repo,
-            ],
-            cwd=str(ROOT),
-        )
-    except subprocess.CalledProcessError:
+    repo = _repo_arg()
+    run_id = _find_successful_run_id(gh, repo)
+    if not run_id:
         print(
-            "ERROR: artifact download failed. Build locally instead:\n"
+            "ERROR: no successful build-ffmpeg run found. Build FFmpeg first:\n"
             "  bash scripts/build_ffmpeg_windows.sh  (MSYS2 MinGW64)",
             file=sys.stderr,
         )
         return 1
 
+    print(f"Downloading ffmpeg-windows artifact (run {run_id}) via gh ...")
+    if not _download_artifact_with_retry(gh, run_id, repo):
+        print(
+            "ERROR: artifact download failed after retries. Build locally instead:\n"
+            "  bash scripts/build_ffmpeg_windows.sh  (MSYS2 MinGW64)",
+            file=sys.stderr,
+        )
+        return 1
+
+    tmp_zip = ROOT / "ffmpeg-windows.zip"
     if tmp_zip.is_file():
         with zipfile.ZipFile(tmp_zip) as z:
             z.extractall(path=BIN)
@@ -121,7 +109,7 @@ def _repo_arg() -> str:
     git_exe = shutil.which("git")
     if git_exe is None:
         print("git not on PATH; using default repo.", file=sys.stderr)
-        return "benkhodabandeh/BKVideoEncoder"
+return "benkhodabandeh/PinkRobinEncoder"
     try:
         url = subprocess.check_output(  # nosec B603 - fixed git binary, fixed args  # noqa: S603
             [git_exe, "remote", "get-url", "origin"],
@@ -135,6 +123,48 @@ def _repo_arg() -> str:
     except Exception:
         logger.debug("git remote detection failed; using default repo.")
     return "benkhodabandeh/BKVideoEncoder"
+
+
+def _find_successful_run_id(gh: str, repo: str) -> str | None:
+    """Find the databaseId of the latest successful build-ffmpeg run."""
+    for _ in range(30):  # Retry up to ~5 minutes
+        try:
+            out = subprocess.check_output(  # nosec B603  # noqa: S603
+                [
+                    gh, "run", "list", "--workflow", "build-ffmpeg.yml",
+                    "--status", "success", "--limit", "1",
+                    "--json", "databaseId", "--jq", ".[0].databaseId",
+                    "--repo", repo,
+                ],
+                cwd=str(ROOT), text=True,
+            ).strip()
+            if out and out.isdigit():
+                return out
+        except subprocess.CalledProcessError:
+            pass
+        time.sleep(10)
+    return None
+
+
+def _download_artifact_with_retry(gh: str, run_id: str, repo: str) -> bool:
+    """Download the ffmpeg-windows artifact, retrying if the artifact isn't ready."""
+    for attempt in range(5):
+        try:
+            subprocess.check_call(  # nosec B603  # noqa: S603
+                [
+                    gh, "run", "download", run_id, "--name", "ffmpeg-windows",
+                    "--dir", str(ROOT), "--repo", repo,
+                ],
+                cwd=str(ROOT),
+            )
+            return True
+        except subprocess.CalledProcessError:
+            if attempt < 4:
+                print(f"Artifact not ready yet, retrying in 15s (attempt {attempt + 1}/5)...")
+                time.sleep(15)
+            else:
+                return False
+    return False
 
 
 if __name__ == "__main__":
