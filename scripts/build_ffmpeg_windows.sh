@@ -187,6 +187,8 @@ else
     echo "  Reusing existing x265 source."
 fi
 rm -rf x265-build && mkdir -p x265-build
+# Patch x265 CMakeLists.txt: CMake 4.x rejects cmake_policy(SET ... OLD).
+sed -i '/cmake_policy(SET CMP0025/d; /cmake_policy(SET CMP0054/d' "$X265_SRC/source/CMakeLists.txt"
 cd x265-build
 cmake -G "Unix Makefiles" \
     "$X265_SRC/source" \
