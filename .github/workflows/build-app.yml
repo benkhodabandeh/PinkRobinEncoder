@@ -9,12 +9,47 @@ on:
       - "v*"
 
 permissions:
-  contents: write # needed to attach the .7z to releases
+  contents: write
 
 jobs:
+  # ---- Job 1: Build custom FFmpeg ----
+  build-ffmpeg:
+    name: Build custom FFmpeg (MSYS2 MinGW64)
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+    outputs:
+      artifact_name: ffmpeg-windows
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up MSYS2 (MinGW64)
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: git
+
+      - name: Build tailored FFmpeg
+        run: bash scripts/build_ffmpeg_windows.sh
+
+      - name: Package bin/
+        shell: pwsh
+        run: Compress-Archive -Path bin/* -DestinationPath ffmpeg-windows.zip
+
+      - name: Upload ffmpeg-windows artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: ffmpeg-windows
+          path: ffmpeg-windows.zip
+          retention-days: 30
+
+  # ---- Job 2: Build the app (depends on FFmpeg artifact) ----
   build-app:
     name: Nuitka onefile + single-exe archive
     runs-on: windows-latest
+    needs: build-ffmpeg
     steps:
       - uses: actions/checkout@v6
 
@@ -32,14 +67,18 @@ jobs:
       - name: Developer checks (lint/typecheck/test)
         run: python scripts/dev_check.py
 
-      - name: Fetch custom FFmpeg bundle
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: python scripts/fetch_ffmpeg_bundle.py
+      - name: Download custom FFmpeg bundle
+        uses: actions/download-artifact@v6
+        with:
+          name: ffmpeg-windows
+          path: ${{ runner.temp }}/ffmpeg-bundle
+
+      - name: Extract FFmpeg bundle to ./bin
+        shell: pwsh
+        run: |
+          Expand-Archive -Path "${{ runner.temp }}/ffmpeg-bundle/ffmpeg-windows.zip" -DestinationPath bin -Force
 
       - name: Nuitka build
-        # dev_check already ran as a separate step above, so skip the
-        # redundant second run inside build.py (same script, same result).
         run: python build.py --skip-tests
 
       - name: Upload portable archive
@@ -48,13 +87,8 @@ jobs:
           name: PinkRobinEncoder-windows
           path: dist/*.7z
           retention-days: 90
-          # The .7z is already maximally compressed; do not waste time
-          # re-compressing it inside GitHub's artifact zip wrapper.
           compression-level: 0
 
-      # Attach the straight .7z to the GitHub Release so users download
-      # PinkRobinEncoder.<ver>.windows.7z directly (artifacts are always
-      # zip-wrapped by GitHub, which caused the old zip-containing-7z).
       - name: Attach .7z to release
         if: startsWith(github.ref, 'refs/tags/')
         env:
