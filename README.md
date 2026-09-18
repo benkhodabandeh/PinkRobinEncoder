@@ -9,9 +9,12 @@
 
 <p align="center">
   <a href="https://github.com/benkhodabandeh/PinkRobinEncoder/releases"><img alt="Releases" src="https://img.shields.io/github/v/release/benkhodabandeh/PinkRobinEncoder?style=for-the-badge"></a>
-  <img alt="Python" src="https://img.shields.io/badge/python-3.10%2B-3776AB?style=for-the-badge&logo=python&logoColor=white">
-  <img alt="Windows 11" src="https://img.shields.io/badge/Windows_11-optimized-0078D4?style=for-the-badge&logo=windows11&logoColor=white">
-  <img alt="License" src="https://img.shields.io/github/license/benkhodabandeh/PinkRobinEncoder?style=for-the-badge">
+  <img alt="Windows 11" src="https://img.shields.io/badge/Windows-0078D4?style=for-the-badge&logo=windows11&logoColor=white">
+</p>
+
+---
+<p align="center">
+  <img src="https://raw.githubusercontent.com/benkhodabandeh/PinkRobinEncoder/main/.github/pinkrobinencodergui.jpg" alt="Pink Robin Encoder" width="760">
 </p>
 
 ---
