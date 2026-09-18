@@ -20,20 +20,7 @@
 
 Pink Robin Encoder is a professional creator-focused encoder front-end. It removes repetitive command-line FFmpeg work while keeping the important creative controls visible: source type, target quality, crop, audio handling, metadata, batch queue, still generation, and VMAF comparison.
 
-### Premium workflow highlights
-
-| Area | What it does |
-|---|---|
-| Preset system | Curated workflows for theatrical masters, web encodes, HEVC compression, social vertical output, and target-size delivery. |
-| Smooth UI | Background FFmpeg execution, debounced estimate/preview updates, bounded UI queue pumping, and non-blocking routine notifications. |
-| Batch queue | Queue multiple jobs, reopen/edit queued jobs, reorder jobs, and process them as a development plan. |
-| Video analysis | FFprobe metadata, source complexity suggestion, crop detection, scene detection, and preview stills. |
-| Quality control | VMAF comparison tool for checking perceptual quality against the original. |
-| Windows 11 polish | High-DPI awareness, bundled FFmpeg build support, refined dark theme, and professional icon/branding assets. |
-
----
-
-## Quick start on Windows 11
+## Quick start on Windows
 
 ### Portable release
 
