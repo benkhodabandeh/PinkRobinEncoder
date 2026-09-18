@@ -21,6 +21,9 @@ bin/
 # Local offline wheel cache (see pip troubleshooting)
 wheels/
 
+# Local tool downloads (gh CLI portable, etc. - fetched by scripts, never committed)
+.tools/
+
 # Archives
 *.zip
 *.tar.gz
