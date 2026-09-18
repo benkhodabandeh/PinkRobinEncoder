@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/benkhodabandeh/PinkRobinEncoder/main/src/pink_robin_logo.png" alt="Pink Robin Encoder" width="760">
+  <img src="https://raw.githubusercontent.com/benkhodabandeh/PinkRobinEncoder/main/.github/pinkrobinencoder.banner.png" alt="Pink Robin Encoder" width="760">
 </p>
 
 <p align="center">
