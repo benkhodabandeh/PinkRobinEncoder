@@ -77,8 +77,13 @@ if (-not $repoExists) {
 
 # --- 4. Push ----------------------------------------------------------------
 Write-Step "Push"
-$remote = (git remote get-url origin 2>$null)
 $wantUrl = "https://github.com/$repoFull.git"
+$remote = $null
+try {
+    $remote = (git remote get-url origin 2>$null)
+} catch {
+    $remote = $null
+}
 if (-not $remote) {
     git remote add origin $wantUrl
 } elseif ($remote -ne $wantUrl) {
