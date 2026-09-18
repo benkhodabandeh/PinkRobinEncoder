@@ -53,8 +53,30 @@ def find_resource_path(resource_name: str) -> str | None:
     """Finds a resource file in bundled or local development environments."""
     search_paths = []
     if hasattr(sys, "_MEIPASS"):
+        # PyInstaller onefile extraction dir.
         search_paths.append(os.path.join(sys._MEIPASS, "bin", resource_name))
         search_paths.append(os.path.join(sys._MEIPASS, resource_name))
+
+    try:
+        # Directory of the running executable/script. In Nuitka standalone
+        # this is the folder containing the .exe (resources live next to it
+        # in ./bin and ./); in Nuitka onefile the bundled data files are
+        # extracted next to the running module (see module_dir below).
+        exe_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
+        search_paths.append(os.path.join(exe_dir, "bin", resource_name))
+        search_paths.append(os.path.join(exe_dir, resource_name))
+    except Exception:
+        logger.debug("argv-based resource lookup unavailable; using PATH only.")
+
+    try:
+        # Directory of this module. In Nuitka onefile mode this resolves
+        # inside the temporary extraction folder where bundled data files
+        # (bin/, icon.ico, ...) are unpacked at startup.
+        module_dir = os.path.dirname(os.path.abspath(__file__))
+        search_paths.append(os.path.join(module_dir, "bin", resource_name))
+        search_paths.append(os.path.join(module_dir, resource_name))
+    except Exception:
+        logger.debug("module-based resource lookup unavailable; using PATH only.")
 
     try:
         script_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
@@ -64,7 +86,7 @@ def find_resource_path(resource_name: str) -> str | None:
         search_paths.append(os.path.join(project_root, "src", resource_name))
         search_paths.append(os.path.join(project_root, resource_name))
     except Exception:
-        logger.debug("argv-based resource lookup unavailable; using PATH only.")
+        logger.debug("project-root resource lookup unavailable; using PATH only.")
 
     for path in search_paths:
         if os.path.exists(path):

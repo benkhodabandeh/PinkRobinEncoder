@@ -18,12 +18,11 @@ from collections.abc import Callable
 from tkinter import messagebox
 from typing import Any
 
-import customtkinter as ctk
-
 import analysis
 
 # Local module imports
 import config
+import customtkinter as ctk
 import encoding
 import gui_callbacks
 import gui_panels
@@ -713,6 +712,11 @@ class App(ctk.CTk):
 
 
 if __name__ == "__main__":
+    if "--version" in sys.argv:
+        # Lightweight startup probe (used by the frozen-build smoke test):
+        # proves the bundle imports cleanly without creating any GUI.
+        print(f"{config.APP_NAME} {config.APP_VERSION}")
+        sys.exit(0)
     try:
         # DPI awareness - Windows only, safe to attempt on all platforms
         from ctypes import windll

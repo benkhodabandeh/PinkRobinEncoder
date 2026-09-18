@@ -8,9 +8,12 @@ on:
     tags:
       - "v*"
 
+permissions:
+  contents: write # needed to attach the .7z to releases
+
 jobs:
   build-app:
-    name: Nuitka standalone + portable archive
+    name: Nuitka onefile + single-exe archive
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v6
@@ -43,3 +46,15 @@ jobs:
           name: PinkRobinEncoder-windows
           path: dist/*.7z
           retention-days: 90
+          # The .7z is already maximally compressed; do not waste time
+          # re-compressing it inside GitHub's artifact zip wrapper.
+          compression-level: 0
+
+      # Attach the straight .7z to the GitHub Release so users download
+      # PinkRobinEncoder.<ver>.windows.7z directly (artifacts are always
+      # zip-wrapped by GitHub, which caused the old zip-containing-7z).
+      - name: Attach .7z to release
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload "${{ github.ref_name }}" dist/*.7z --clobber
