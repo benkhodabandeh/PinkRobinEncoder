@@ -62,11 +62,14 @@ def load_video_task(app: "App") -> None:
         info = analysis.get_video_info(filepath)
     except Exception as e:
         logger.exception(f"Video analysis failed for {filepath}")
-        # Bind via default arg: the except variable is deleted after the
-        # block, so a bare closure over `e` would raise NameError when run.
-        _safe_ui_update(app, lambda _err=e: gui_updaters.handle_error_message(
-            app, ("File Error", f"Analysis failed: {_err}")
-        ))
+        # Eager message (not a closure over `e`): the except variable is
+        # deleted after the block, and mypy cannot infer such lambdas.
+        err_text = f"Analysis failed: {e}"
+
+        def _report() -> None:
+            gui_updaters.handle_error_message(app, ("File Error", err_text))
+
+        _safe_ui_update(app, _report)
         return
 
     if not info:

@@ -15,7 +15,7 @@ import os
 import random
 import re
 from collections.abc import Callable
-from typing import Any
+from typing import Any, cast
 
 # Third-party imports - Pillow required
 from PIL import Image, ImageDraw
@@ -433,7 +433,9 @@ def analyze_image_colors(image_path: str, num_colors: int) -> list[str] | None:
             color_counts.sort(reverse=True, key=lambda item: item[0])
             dominant_colors_hex = []
             for _, color_index in color_counts[:num_colors]:
-                idx = int(color_index) * 3
+                # P-mode getcolors() yields palette indices (ints); the stub
+                # types them loosely, so narrow explicitly.
+                idx = cast(int, color_index) * 3
                 channels = [int(v) for v in palette_rgb_flat[idx : idx + 3]]
                 if len(channels) != 3:
                     return None

@@ -426,7 +426,10 @@ def validate_presets() -> None:
     for group_name, group in groups:
         for pid, preset in group.items():
             # Preset dicts are heterogeneous; narrow for typed access below.
-            assert isinstance(preset, dict)
+            # (Explicit check, not assert: -O must never disable validation.)
+            if not isinstance(preset, dict):
+                problems.append(f"{group_name}/{pid}: preset must be a dict")
+                continue
             if pid in seen:
                 problems.append(f"Duplicate preset id: {pid}")
             seen.add(pid)
