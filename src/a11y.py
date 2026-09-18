@@ -24,7 +24,7 @@ import config
 
 logger = logging.getLogger(__name__)
 
-FOCUS_RING_COLOR = "#F0CB70"
+FOCUS_RING_COLOR = config.Theme.PRIMARY
 FOCUS_RING_WIDTH = 2
 
 

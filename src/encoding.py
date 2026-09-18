@@ -516,7 +516,22 @@ def run_job(
     elif rate_control_mode == "2pass_abr":
         total_passes = 2
         quality_level = job.get("quality_level")
-        video_kbps = preset_conf.get("video_kbps_levels", {}).get(quality_level, 2500)
+        if preset_id == "THE_JOB":
+            # THE_JOB has no video_kbps_levels: ABR must be derived from the
+            # requested target file size (minus audio overhead), using the
+            # exact same math as the UI estimate so the encode hits the target.
+            video_kbps = utils.calculate_video_bitrate(
+                preset_id,
+                preset_conf,
+                job.get("input_file_info", {}),
+                job,
+                out_w,
+                out_h,
+            )
+        else:
+            video_kbps = preset_conf.get("video_kbps_levels", {}).get(
+                quality_level, 2500
+            )
         video_opts.extend(["-b:v", f"{video_kbps}k"])
 
         vbv_mult = preset_conf.get("vbv_bufsize_multiplier") or preset_conf.get(

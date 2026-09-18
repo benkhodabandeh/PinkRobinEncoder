@@ -244,6 +244,16 @@ def generate_final_stills_task(app: "App"):
         )
 
 
+def read_ui_metadata(app: "App") -> dict[str, str]:
+    """Reads the current metadata directly from the GUI entry widgets."""
+    current_metadata = {}
+    if meta_entries := app.widget_refs.get("meta_entries"):
+        for field, entry_ref in meta_entries.items():
+            if entry := app._get_widget(entry_ref):
+                current_metadata[field] = entry.get()
+    return current_metadata
+
+
 def create_job_item_from_current_state(app: "App") -> dict[str, Any] | None:
     """
     Creates a job item by reading DIRECTLY from the UI widgets,
@@ -258,11 +268,7 @@ def create_job_item_from_current_state(app: "App") -> dict[str, Any] | None:
     ):
         return None
 
-    current_metadata = {}
-    if meta_entries := app.widget_refs.get("meta_entries"):
-        for field, entry_ref in meta_entries.items():
-            if entry := app._get_widget(entry_ref):
-                current_metadata[field] = entry.get()
+    current_metadata = read_ui_metadata(app)
 
     job_id = str(uuid.uuid4())
     return {

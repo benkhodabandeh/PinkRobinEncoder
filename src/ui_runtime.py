@@ -17,18 +17,19 @@ import types
 from collections import deque
 from typing import Any
 
+import config
 import customtkinter as ctk
 
 logger = logging.getLogger(__name__)
 
 # Performance tuning constants
-UI_QUEUE_BATCH_LIMIT = 64           # Max callbacks per frame (increased for throughput)
-UI_QUEUE_IDLE_TICK_MS = 16          # 60fps idle cadence
-UI_QUEUE_BURST_TICK_MS = 4          # High-frequency burst cadence
+UI_QUEUE_BATCH_LIMIT = 24           # Bounded drain so repaints/input get time
+UI_QUEUE_IDLE_TICK_MS = 33          # Calm idle cadence (~30fps, less repaint contention)
+UI_QUEUE_BURST_TICK_MS = 16         # Burst cadence only when queue is deep
 ESTIMATE_DEBOUNCE_MS = 180
 ESTIMATE_DEBOUNCE_FAST_MS = 50      # Fast debounce for rapid changes
-PREVIEW_DEBOUNCE_MS = 90
-PREVIEW_DEBOUNCE_FAST_MS = 30       # Fast debounce for drag operations
+PREVIEW_DEBOUNCE_MS = 200
+PREVIEW_DEBOUNCE_FAST_MS = 120      # Still calm during drag operations
 PROCESS_CANCEL_GRACE_SEC = 2.5
 
 # Adaptive performance tracking
@@ -190,26 +191,26 @@ def _show_toast(self: Any, title: str, message: str, duration_ms: int = 2400) ->
         self._active_toast = toast
         toast.overrideredirect(True)
         toast.attributes("-topmost", True)
-        toast.configure(fg_color="#0E1117")
+        toast.configure(fg_color=config.Theme.BACKGROUND)
         frame = ctk.CTkFrame(
             toast,
-            fg_color="#151A22",
-            corner_radius=14,
+            fg_color=config.Theme.SURFACE,
+            corner_radius=config.Theme.CORNER_RADIUS + 6,
             border_width=1,
-            border_color="#DAB45B",
+            border_color=config.Theme.PRIMARY,
         )
         frame.pack(fill="both", expand=True, padx=1, pady=1)
         ctk.CTkLabel(
-            frame, text=title, font=("Segoe UI", 13, "bold"), text_color="#F5F6F8"
-        ).pack(anchor="w", padx=16, pady=(12, 0))
+            frame, text=title, font=(config.Theme.FONT_FAMILY, 12, "bold"), text_color=config.Theme.TEXT_PRIMARY
+        ).pack(anchor="w", padx=14, pady=(10, 0))
         ctk.CTkLabel(
             frame,
             text=message,
-            font=("Segoe UI", 12),
-            text_color="#A9B4C0",
-            wraplength=360,
+            font=(config.Theme.FONT_FAMILY, 11),
+            text_color=config.Theme.TEXT_SECONDARY,
+            wraplength=340,
             justify="left",
-        ).pack(anchor="w", padx=16, pady=(3, 12))
+        ).pack(anchor="w", padx=14, pady=(3, 10))
         self.update_idletasks()
         x = self.winfo_rootx() + max(24, self.winfo_width() - 430)
         y = self.winfo_rooty() + max(24, self.winfo_height() - 140)

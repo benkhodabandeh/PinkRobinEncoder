@@ -182,7 +182,7 @@ def custom_crop_entry_callback(app: "App"):
     )
 
 
-# --- Special Operations Callbacks ---
+# --- Additional Tools Callbacks ---
 
 
 def mux_callback(app: "App"):
@@ -264,7 +264,7 @@ def add_to_queue_callback(app: "App"):
     app._reset_ui_for_new_job()
     getattr(app, "_show_toast", app._show_info)(
         "Job Queued",
-        f"'{job_item['metadata'].get('title', 'Untitled')}' was added to The Plan.",
+        f"'{job_item['metadata'].get('title', 'Untitled')}' was added to the queue.",
     )
 
 
@@ -276,6 +276,11 @@ def develop_callback(app: "App"):
         jobs_to_run = list(app.batch_queue)
         app.batch_queue.clear()
         gui_panels.update_queue_display(app)
+        # Refresh metadata from the current GUI so edits made after
+        # queueing (title/year/studio) are respected at encode time.
+        current_metadata = gui_tasks.read_ui_metadata(app)
+        for job in jobs_to_run:
+            job["metadata"] = dict(current_metadata)
     elif app.is_video_loaded:
         logger.info(
             "Develop started with no jobs in queue. Creating a single job from UI."
@@ -399,7 +404,7 @@ def reopen_job_callback(app: "App", job_id: str):
     app._show_info(
         "Job Loaded",
         "The selected job's settings have been loaded for editing.\n"
-        "It has been removed from The Plan.",
+        "It has been removed from the queue.",
     )
 
 
@@ -461,10 +466,31 @@ def reload_still_callback(app: "App"):
 
 
 def preview_resize_callback(app: "App", event: Any):
-    """Handles the canvas resize event to redraw the preview image."""
+    """Handles the canvas resize event to redraw the preview image.
+
+    Window drags fire dozens of <Configure> events per second. Redrawing a
+    full LANCZOS-scaled image on every event causes tearing, black flashes
+    and a low-refresh feel, so we debounce longer and ignore tiny jitters.
+    """
+    canvas = app._get_widget("preview_canvas") if hasattr(app, "_get_widget") else None
+    if canvas is not None and getattr(event, "widget", None) not in (None, canvas):
+        return
+    try:
+        w, h = int(getattr(event, "width", 0)), int(getattr(event, "height", 0))
+    except (TypeError, ValueError):
+        w, h = 0, 0
+    last = getattr(app, "_last_preview_size", None)
+    if last is not None and abs(w - last[0]) < 12 and abs(h - last[1]) < 12:
+        return
+    app._last_preview_size = (w, h)
     if app.resize_job_id:
-        app.after_cancel(app.resize_job_id)
-    app.resize_job_id = app.after(150, lambda: _perform_resize_actions(app))
+        try:
+            app.after_cancel(app.resize_job_id)
+        except Exception:
+            pass
+    # Redraw only once the drag settles - LANCZOS scaling a 1080p still on
+    # every <Configure> event is what made resizing feel like an old PC.
+    app.resize_job_id = app.after(500, lambda: _perform_resize_actions(app))
 
 
 def _perform_resize_actions(app: "App"):

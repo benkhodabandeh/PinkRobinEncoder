@@ -31,10 +31,21 @@ ROOT = Path(__file__).parent.resolve()
 SRC = ROOT / "src"
 DIST = ROOT / "dist"
 BIN = ROOT / "bin"
-VER = "2026.7.7"
+VER = "V1.0"
+# Nuitka requires a fully-numeric version for its VERSIONINFO resource.
+NUITKA_VERSION = "1.0.0.0"
 NAME = "PinkRobinEncoder"
 
-REQUIRED_BIN_FILES = ("ffmpeg.exe", "ffprobe.exe", "libvmaf.dll", "libsoxr.dll")
+REQUIRED_BIN_FILES = (
+    "ffmpeg.exe",
+    "ffprobe.exe",
+    "libx265.dll",
+    "libsoxr.dll",
+    "libvmaf.dll",
+)
+# Versioned DLL names change with upstream releases (e.g. libx264-164.dll ->
+# libx264-165.dll), so match those by glob instead of a hardcoded name.
+REQUIRED_BIN_GLOBS = ("libx264-*.dll", "libfdk-aac-*.dll")
 
 
 def run(cmd: list[str]) -> None:
@@ -50,10 +61,9 @@ def check_windows() -> None:
 
 def check_ffmpeg_bundle() -> None:
     missing = [f for f in REQUIRED_BIN_FILES if not (BIN / f).is_file()]
-    # x264 upstream bumps its API version (libx264-164.dll -> -165.dll ...),
-    # so accept any libx264-*.dll rather than a hardcoded name.
-    if not any(BIN.glob("libx264-*.dll")):
-        missing.append("libx264-*.dll")
+    for pattern in REQUIRED_BIN_GLOBS:
+        if not any(BIN.glob(pattern)):
+            missing.append(pattern)
     if missing:
         print("ERROR: custom FFmpeg bundle incomplete in ./bin.", file=sys.stderr)
         print(f"  Missing: {', '.join(missing)}", file=sys.stderr)
@@ -84,8 +94,10 @@ def main() -> None:
     print("FFmpeg bundle executes OK.")
 
     # ---- Nuitka compile (onefile: single all-in-one exe) ----
-    # The whole ./bin bundle (ffmpeg.exe, ffprobe.exe + DLLs) is embedded
-    # via --include-data-dir and unpacked to a cache dir at first launch.
+    # Every file in ./bin (ffmpeg.exe, ffprobe.exe + all DLLs) is embedded
+    # via explicit --include-data-files entries (Nuitka filters .exe/.dll
+    # out of --include-data-dir, which only covers the VMAF model JSON) and
+    # unpacked to a cache dir at first launch.
     cmd = [
         sys.executable,
         "-m",
@@ -95,12 +107,16 @@ def main() -> None:
         f"--windows-icon-from-ico={SRC / 'icon.ico'}",
         "--company-name=Pink Robin Encoder",
         f"--product-name={NAME}",
-        f"--file-version={VER}",
-        f"--product-version={VER}",
+        f"--file-version={NUITKA_VERSION}",
+        f"--product-version={NUITKA_VERSION}",
         f"--output-dir={DIST}",
+        "--enable-plugin=tk-inter",
         f"--include-data-files={SRC / 'icon.ico'}=icon.ico",
-        f"--include-data-files={SRC / 'wgelogo.png'}=wgelogo.png",
-        f"--include-data-files={SRC / 'vmaf_v0.6.1.json'}=vmaf_v0.6.1.json",
+        f"--include-data-files={SRC / 'pink_robin_logo.png'}=pink_robin_logo.png",
+        # The FFmpeg binaries and all DLLs must be embedded explicitly
+        # (Nuitka filters .exe/.dll out of --include-data-dir).
+        # find_resource_path resolves them from sys._MEIPASS/bin/ at runtime.
+        *[f"--include-data-files={f}=bin/{f.name}" for f in sorted(BIN.iterdir()) if f.is_file()],
         f"--include-data-dir={BIN}=bin",
         "--include-package-data=scenedetect",
         "--nofollow-import-to=tests,pytest",

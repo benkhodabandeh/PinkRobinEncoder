@@ -119,19 +119,14 @@ class CompletionDialog(ctk.CTkToplevel):
             pady=(padding, padding)
         )
 
-        details_frame = ctk.CTkFrame(
-            self,
-            fg_color=config.Theme.SURFACE,
-            corner_radius=config.Theme.CORNER_RADIUS,
-        )
-        details_frame.pack(pady=5, padx=padding, fill="x")
         ctk.CTkLabel(
             self,
             text=message_details,
             wraplength=400,
             justify="left",
+            anchor="w",
             font=config.Theme.FONT_BODY,
-        ).pack(in_=details_frame, pady=padding, padx=padding)
+        ).pack(pady=(0, padding), padx=padding, anchor="w")
 
         time_frame = ctk.CTkFrame(
             self,

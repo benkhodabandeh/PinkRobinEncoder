@@ -6,17 +6,16 @@ This module defines:
   - Application metadata (name, version, copyright)
   - Default paths and filenames for logs, temporary files, and app settings.
   - Highly detailed, source-aware preset definitions for software encoding.
-  - Constants for specialized workflows like "The Heist" and "The Job".
+  - Constants for specialized workflows like social vertical and target size.
   - GUI appearance and other system settings.
 """
 
 import logging
-from datetime import datetime
 
 # --- Application Information ---
 APP_NAME = "Pink Robin Encoder"
-APP_VERSION = "2026.7.7"
-COPYRIGHT_TEXT = f"© 2018 - {datetime.now().year}"
+APP_VERSION = "V1.0"
+COPYRIGHT_TEXT = "Designed by Benyamin Khodabandeh © 2018 - 2026"
 UPDATE_URL = (
     "https://api.github.com/repos/benkhodabandeh/BKVideoEncoder/releases/latest"
 )
@@ -34,45 +33,45 @@ class Quality:
 class Theme:
     """A professional, modern theme inspired by Google's Material Design."""
 
-    # Color Palette
-    PRIMARY = "#DAB45B"  # Bright Cyan (Primary Action)
-    PRIMARY_HOVER = "#F0CB70"
-    SECONDARY = "#3E5268"  # Blue Grey (Secondary Action / Tonal Buttons)
-    SECONDARY_HOVER = "#4F6A86"
+    # Color Palette - Professional Dark Theme with Pink Accents
+    PRIMARY = "#FF4B91"       # Hot Pink - Primary buttons
+    PRIMARY_HOVER = "#FF2E7E" # Bright Pink - Primary hover
+    SECONDARY = "#4A5568"     # Slate Grey - Secondary buttons
+    SECONDARY_HOVER = "#5A6578" # Lighter Slate - Secondary hover
 
-    BACKGROUND = "#0E1117"  # Near-black for the main window
-    SURFACE = "#151A22"  # Dark grey for panels and cards
-    SURFACE_LIGHT = "#202837"  # Lighter grey for interactive surfaces
+    BACKGROUND = "#0A0E17"    # Very dark navy - Main window
+    SURFACE = "#141E3A"       # Dark navy - Panels and cards
+    SURFACE_LIGHT = "#1E2D4A" # Medium navy - Interactive surfaces
 
-    TEXT_PRIMARY = "#F5F6F8"  # Soft white for primary text
-    TEXT_SECONDARY = "#A9B4C0"  # Muted grey for hints and secondary info
-    TEXT_ON_PRIMARY = "#0E1117"  # White text for primary buttons
+    TEXT_PRIMARY = "#E8EDF5"  # Off-white - Primary text
+    TEXT_SECONDARY = "#8B9CC3" # Muted blue-grey - Secondary text
+    TEXT_ON_PRIMARY = "#0A0E17" # Dark - Text on primary buttons
 
-    ERROR = "#CF6679"  # Material-compliant error color for dark themes
-    SUCCESS = "#66BB6A"  # A clear, standard green
+    ERROR = "#FF6B8A"         # Soft coral - Error
+    SUCCESS = "#6BCB77"       # Fresh green - Success
 
     # Typography
     FONT_FAMILY = "Segoe UI"
-    FONT_H1 = (FONT_FAMILY, 24, "bold")
-    FONT_H2 = (FONT_FAMILY, 16, "bold")
-    FONT_SUBTITLE = (FONT_FAMILY, 14, "bold")
-    FONT_BODY = (FONT_FAMILY, 14)
-    FONT_BUTTON = (FONT_FAMILY, 14, "bold")
-    FONT_SMALL = (FONT_FAMILY, 12)
+    FONT_H1 = (FONT_FAMILY, 22, "bold")
+    FONT_H2 = (FONT_FAMILY, 14, "bold")
+    FONT_SUBTITLE = (FONT_FAMILY, 12, "bold")
+    FONT_BODY = (FONT_FAMILY, 12)
+    FONT_BUTTON = (FONT_FAMILY, 12, "bold")
+    FONT_SMALL = (FONT_FAMILY, 11)
     FONT_MONO = "Consolas"
 
     # Dimensions
-    CORNER_RADIUS = 12  # Softer, more modern corners
-    PADDING = 15
-    PADDING_SMALL = 8
+    CORNER_RADIUS = 8  # Modern, sleeker corners
+    PADDING = 10
+    PADDING_SMALL = 6
 
 
 # --- File/Folder Structure & System Settings ---
-LOG_FOLDER_NAME = "BKVideoEncoder_Logs"
-APP_SETTINGS_FILENAME = "wge_settings.json"
+LOG_FOLDER_NAME = "PinkRobinEncoder_Logs"
+APP_SETTINGS_FILENAME = "pink_robin_settings.json"
 TEMP_DIR_BASE = f"{APP_NAME.replace(' ', '_')}_Temp"
-LOGO_FILENAME = "wgelogo.png"
-PASSLOG_FILENAME_BASE = "wge_passlog"
+LOGO_FILENAME = "pink_robin_logo.png"
+PASSLOG_FILENAME_BASE = "pink_robin_passlog"
 
 
 # --- Logging Configuration ---
@@ -116,7 +115,7 @@ FFPROBE_EXE = get_platform_exe_name(FFPROBE_EXE_BASE)
 
 
 # --- Metadata Configuration ---
-METADATA_USER_FIELDS = ["title", "artist", "year", "syndicate"]
+METADATA_USER_FIELDS = ["title", "artist", "year", "studio"]
 
 # --- Analysis and Still Settings ---
 CROP_DETECT_DURATION = 10
@@ -146,9 +145,9 @@ VMAF_MODEL_FILENAME = "vmaf_v0.6.1.json"
 VMAF_NUM_THREADS = 0  # 0 means auto-detect
 VMAF_SCORE_GUIDE = {
     (95, 101): ("✅", "Prime Cut! (Looks just like the original)", Theme.SUCCESS),
-    (90, 95): ("👍", "Good Stuff (Hard to tell the difference)", "#82C04F"),
-    (80, 90): ("👌", "Decent (A bit rough around the edges)", "#A5D6A7"),
-    (60, 80): ("🤔", "Rough (Needs some work)", "#FFB74D"),
+    (90, 95): ("👍", "Good Stuff (Hard to tell the difference)", Theme.PRIMARY),
+    (80, 90): ("👌", "Decent (A bit rough around the edges)", Theme.TEXT_SECONDARY),
+    (60, 80): ("🤔", "Rough (Needs some work)", Theme.ERROR),
     (0, 60): ("❌", "Forget About It! (A real mess)", Theme.ERROR),
 }
 
@@ -157,7 +156,7 @@ VMAF_SCORE_GUIDE = {
 AUDIO_RESAMPLE_FILTER = "aresample=resampler=soxr:out_sample_rate=48000"
 SCALING_FILTER_FLAGS = "flags=lanczos+accurate_rnd+full_chroma_int"
 FFMPEG_PROGRESS_INTERVAL_SEC = 0.25  # Reduced update frequency for less noise
-PERFORMANCE_LOG_FILENAME = "wge_perf.json"
+PERFORMANCE_LOG_FILENAME = "pink_robin_perf.json"
 
 
 # =================================================================================
@@ -167,7 +166,7 @@ PERFORMANCE_LOG_FILENAME = "wge_perf.json"
 STANDARD_PRESETS = {
     # 'The Finisher' - High-quality, compatible, CRF-based master. Reasonably fast.
     "THE_CAPO": {
-        "name": "The Capo",
+        "name": "Studio H.264",
         "output_name": "Theatrical",
         "description": "CRF-based high-quality theatrical master. Compatible with all players. "
             "Uses slow preset for best quality.",
@@ -199,7 +198,7 @@ STANDARD_PRESETS = {
     },
     # 'The Archivist' - Pushes x264 to its absolute limits for maximum quality/bitrate. VERY SLOW.
     "THE_SOLDIER": {
-        "name": "The Soldier",
+        "name": "Web H.264",
         "output_name": "Web.x264",
         "description": "2-pass ABR web encode with predictable size and quality. Pushes x264 to "
             "its limits for maximum quality/bitrate. VERY SLOW.",
@@ -232,7 +231,7 @@ STANDARD_PRESETS = {
     },
     # 'The Phantom' - Pushes x265 to its limits for maximum 10-bit quality/bitrate. VERY SLOW.
     "THE_GHOST": {
-        "name": "The Ghost",
+        "name": "Web H.265",
         "output_name": "Web.x265",
         "description": "Pushes x265 to its limits for maximum 10-bit quality/bitrate. VERY SLOW.",
         "container": ".mp4",
@@ -246,9 +245,9 @@ STANDARD_PRESETS = {
         "base_options": {"preset": "slow", "threads": "0"},
         "pix_fmt_10bit": "yuv420p10le",
         "size_denoise_filter": "nlmeans=s=1:p=3:r=5",
-        "size_sharpen_filter": "cas.strength=0.1",
+        "size_sharpen_filter": "cas=strength=0.1",
         "denoise_filter": "nlmeans=s=1:p=3:r=5",
-        "sharpen_filter": "cas.strength=0.1",
+        "sharpen_filter": "cas=strength=0.1",
         "source_material_tuning": {
             # Re-tuned for stability and quality. Enabled slow-firstpass.
             "common_x265_params": "rd=4:rdoq-level=2:aq-mode=3:b-adapt=2:rc-lookahead=80:subme=5:"
@@ -268,7 +267,7 @@ STANDARD_PRESETS = {
 FAST_PRESETS = {
     # CRF-based for fast, high-quality x264 encodes.
     "THE_HITMAN": {
-        "name": "The Hitman",
+        "name": "Express H.264",
         "output_name": "Fast.x264",
         "description": "CRF-based fast, high-quality x264 encode. Fast preset for quick exports.",
         "container": ".mp4",
@@ -296,7 +295,7 @@ FAST_PRESETS = {
     },
     # CRF-based for very fast, efficient 10-bit x265 encodes.
 "THE_ROCKET": {
-        "name": "The Rocket",
+        "name": "Express H.265",
         "output_name": "Fast.x265",
         "description": "CRF-based very fast, efficient 10-bit x265 encode. Faster preset for "
             "efficient exports.",
@@ -310,9 +309,9 @@ FAST_PRESETS = {
         "base_options": {"preset": "faster", "tune": "fastdecode", "threads": "0"},
         "pix_fmt_10bit": "yuv420p10le",
         "size_denoise_filter": "nlmeans=s=1:p=3:r=5",
-        "size_sharpen_filter": "cas.strength=0.1",
+        "size_sharpen_filter": "cas=strength=0.1",
         "denoise_filter": "nlmeans=s=1:p=3:r=5",
-        "sharpen_filter": "cas.strength=0.1",
+        "sharpen_filter": "cas=strength=0.1",
         "source_material_tuning": {
             "common_x265_params": "rd=4:rdoq-level=1:aq-mode=3:qg-size=8:b-adapt=2:rc-lookahead=80:"
                 "subme=5:keyint=360:hist-scenecut=1:scenecut-aware-qp=1:merange=64:aq-strength=1.2:"
@@ -330,7 +329,7 @@ FAST_PRESETS = {
 WORKFLOW_PRESETS = {
     # CRF-based preset optimized for vertical social media (e.g., Instagram Reels).
 "THE_HEIST": {
-        "name": "The Heist",
+        "name": "Social Vertical",
         "output_name": "Social",
         "description": "CRF-based preset optimized for vertical social media (e.g., Instagram "
             "Reels). 1080p vertical output with slow preset for quality.",
@@ -350,7 +349,7 @@ WORKFLOW_PRESETS = {
             "tune": "fastdecode",
         },
         "denoise_filter": "nlmeans=s=1:p=3:r=5",
-        "sharpen_filter": "cas.strength=0.8",
+        "sharpen_filter": "cas=strength=0.8",
         "source_material_tuning": {
             "common": "-x264-params bframes=3:b-adapt=2:ref=4:aq-mode=1:aq-strength=1.2:psy-rd=1.1:"
                 "0.25:mbtree=1:qcomp=0.9:merange=48:keyint=360:min-keyint=1"
@@ -358,7 +357,7 @@ WORKFLOW_PRESETS = {
     },
     # ABR-based preset for targeting a specific output file size.
 "THE_JOB": {
-        "name": "The Job",
+        "name": "Target Size",
         "output_name": "Target_MB",
         "description": "ABR-based preset for targeting a specific output file size. Exact "
             "target-size encodes with 2-pass ABR.",
@@ -376,7 +375,7 @@ WORKFLOW_PRESETS = {
         "audio_options": "-b:a 128k",
         "audio_bitrate_kbps": 128,
         "size_denoise_filter": "nlmeans=s=1:p=3:r=5",
-        "size_sharpen_filter": "cas.strength=0.1",
+        "size_sharpen_filter": "cas=strength=0.1",
     },
 }
 

@@ -38,7 +38,9 @@ jobs:
         run: python scripts/fetch_ffmpeg_bundle.py
 
       - name: Nuitka build
-        run: python build.py
+        # dev_check already ran as a separate step above, so skip the
+        # redundant second run inside build.py (same script, same result).
+        run: python build.py --skip-tests
 
       - name: Upload portable archive
         uses: actions/upload-artifact@v6

@@ -6,7 +6,7 @@ published as the `ffmpeg-windows` artifact of the `build-ffmpeg` GitHub
 Actions workflow. This script downloads and verifies it into ./bin.
 
 Usage (CI or local):
-    python scripts/fetch_ffmpeg_bundle.py [--release-tag v2026.7.7] [--repo OWNER/REPO]
+    python scripts/fetch_ffmpeg_bundle.py [--repo OWNER/REPO]
 
 Requires: GitHub CLI (gh) for artifact download. Falls back to a clear error
 telling the user to build locally with scripts/build_ffmpeg_windows.sh.
@@ -34,21 +34,25 @@ BIN = ROOT / "bin"
 REQUIRED_FILES = (
     "ffmpeg.exe",
     "ffprobe.exe",
-    "libvmaf.dll",
+    "libx265.dll",
     "libsoxr.dll",
+    "libvmaf.dll",
 )
 
+# Versioned DLL names change with upstream releases (e.g. libx264-164.dll ->
+# libx264-165.dll), so match those by glob instead of a hardcoded name.
+REQUIRED_GLOBS = ("libx264-*.dll", "libfdk-aac-*.dll")
 
-def _has_x264_dll() -> bool:
-    """x264 API version changes with upstream; accept any libx264-*.dll."""
-    return any(BIN.glob("libx264-*.dll"))
+
+def _has_dll(pattern: str) -> bool:
+    """Check for a versioned DLL by glob pattern."""
+    return any(BIN.glob(pattern))
 
 
 def bundle_complete() -> list[str]:
     BIN.mkdir(exist_ok=True)
     missing = [f for f in REQUIRED_FILES if not (BIN / f).is_file()]
-    if not _has_x264_dll():
-        missing.append("libx264-*.dll")
+    missing.extend(p for p in REQUIRED_GLOBS if not _has_dll(p))
     return missing
 
 

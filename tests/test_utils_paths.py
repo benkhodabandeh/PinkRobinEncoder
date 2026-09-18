@@ -71,12 +71,10 @@ def test_escape_ffmpeg_path_for_filter():
     assert utils.escape_ffmpeg_path_for_filter(123) == ""
 
 
-def test_prepare_long_running_cmd_adds_nostdin():
+def test_prepare_long_running_cmd_passthrough():
+    # -nostdin is intentionally not injected (bundled FFmpeg doesn't support it).
     cmd = utils._prepare_long_running_cmd(["ffmpeg", "-y", "-i", "in.mp4"])
-    assert cmd[1] == "-nostdin"
-    # Idempotent: don't add twice
-    cmd2 = utils._prepare_long_running_cmd(["ffmpeg", "-nostdin", "-y"])
-    assert cmd2.count("-nostdin") == 1
-    # Non-ffmpeg commands untouched
+    assert cmd == ["ffmpeg", "-y", "-i", "in.mp4"]
+    assert cmd is not None and cmd[1] != "-nostdin"
     assert utils._prepare_long_running_cmd(["git", "status"]) == ["git", "status"]
     assert utils._prepare_long_running_cmd([]) == []

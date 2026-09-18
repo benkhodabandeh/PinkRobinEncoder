@@ -5,17 +5,23 @@ __pycache__/
 venv/
 .venv/
 
+# Test / coverage artifacts
+.coverage
+.pytest_cache/
+
 # Build
 build/
 dist/
 *.spec
 
 # Project settings/logs
-wge_settings.json
-BKVideoEncoder_Logs/
+pink_robin_settings.json
+PinkRobinEncoder_Logs/
 
-# Binaries (not in source repo; CI downloads them)
-bin/
+# Binaries (not in source repo; CI downloads them).
+# NOTE: ignore the *contents* (bin/*), not the directory itself, otherwise
+# the ! exception below has no effect and the VMAF model is never tracked.
+bin/*
 !bin/vmaf_v0.6.1.json
 
 # Local offline wheel cache (see pip troubleshooting)

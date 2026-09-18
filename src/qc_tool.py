@@ -9,6 +9,7 @@ import logging
 import os
 import re
 import shlex
+import shutil
 import subprocess
 import threading
 import tkinter as tk
@@ -333,7 +334,7 @@ class QCToolWindow(ctk.CTkToplevel):
                 state="normal",
                 text="CANCEL",
                 fg_color=config.Theme.ERROR,
-                hover_color="#A55060",
+                hover_color=config.Theme.PRIMARY_HOVER,
                 command=self._cancel_task,
             )
             self._log_message(f"\n--- {status_text} ---")
@@ -583,18 +584,24 @@ class QCToolWindow(ctk.CTkToplevel):
             if not self.ffmpeg_path or not self.vmaf_model_path:
                 raise RuntimeError("FFmpeg or VMAF model path not set.")
 
-            ffmpeg_dir, model_filename = (
-                os.path.dirname(self.ffmpeg_path),
-                os.path.basename(self.vmaf_model_path),
+            # libvmaf resolves model/log paths relative to the process CWD, and
+            # the filter-graph parser splits option values at ':' — a Windows
+            # drive colon in an absolute path cannot be escaped. Run from a
+            # dedicated temp dir that holds a copy of the model and reference
+            # everything by bare relative filenames instead.
+            qc_dir = os.path.join(
+                self.parent_app.app_temp_dir or os.path.dirname(self.ffmpeg_path),
+                "vmaf",
             )
-            vmaf_log_path = os.path.join(
-                self.parent_app.app_temp_dir, f"vmaf_log_{uuid.uuid4().hex}.json"
-            )
-            escaped_log_path = utils.escape_ffmpeg_path_for_filter(vmaf_log_path)
+            os.makedirs(qc_dir, exist_ok=True)
+            model_filename = config.VMAF_MODEL_FILENAME
+            model_in_qc = os.path.join(qc_dir, model_filename)
+            if os.path.abspath(self.vmaf_model_path) != os.path.abspath(model_in_qc):
+                shutil.copy2(self.vmaf_model_path, model_in_qc)
 
-            # model=path= is the correct libvmaf option syntax.
+            vmaf_log_name = f"vmaf_log_{uuid.uuid4().hex}.json"
             libvmaf_options = (
-                f"model=path='{model_filename}':log_path={escaped_log_path}"
+                f"model=path={model_filename}:log_path={vmaf_log_name}"
                 f":log_fmt=json:n_threads={config.VMAF_NUM_THREADS}"
             )
 
@@ -619,12 +626,12 @@ class QCToolWindow(ctk.CTkToplevel):
                 "-",
             ]
 
-            logger.info(f"Executing VMAF command with CWD set to: {ffmpeg_dir}")
+            logger.info(f"Executing VMAF command with CWD set to: {qc_dir}")
             logger.info(
                 f"Full command for debugging: {' '.join(shlex.quote(c) for c in command)}"
             )
             self._log_message(
-                f"Using {config.VMAF_NUM_THREADS or 'auto'} threads. Executing from: {ffmpeg_dir}"
+                f"Using {config.VMAF_NUM_THREADS or 'auto'} threads. Executing from: {qc_dir}"
             )
 
             ret_code, _, stderr_output = utils.run_process(
@@ -635,7 +642,7 @@ class QCToolWindow(ctk.CTkToplevel):
                 process_description="VMAF Calculation",
                 process_holder=self.process_holder,
                 cancel_flag_func=lambda: self.cancel_requested,
-                cwd=ffmpeg_dir,
+                cwd=qc_dir,
             )
 
             if self.cancel_requested:

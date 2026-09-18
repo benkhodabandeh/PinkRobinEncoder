@@ -33,16 +33,9 @@ logger = logging.getLogger(__name__)
 def _prepare_long_running_cmd(cmd: list[str]) -> list[str]:
     """Return a safer FFmpeg/FFprobe command.
 
-    FFmpeg can read from stdin by default. In GUI apps that can cause rare hangs,
-    especially when packaged on Windows. Add -nostdin automatically when the
-    executable appears to be FFmpeg/FFprobe and the caller did not already add it.
+    This version skips -nostdin as the bundled FFmpeg build doesn't support it.
     """
     prepared = list(cmd or [])
-    if not prepared:
-        return prepared
-    exe_name = os.path.basename(str(prepared[0])).lower()
-    if ("ffmpeg" in exe_name or "ffprobe" in exe_name) and "-nostdin" not in prepared:
-        prepared.insert(1, "-nostdin")
     return prepared
 
 
@@ -50,55 +43,59 @@ def _prepare_long_running_cmd(cmd: list[str]) -> list[str]:
 
 
 def find_resource_path(resource_name: str) -> str | None:
-    """Finds a resource file in bundled or local development environments."""
-    search_paths = []
-    if hasattr(sys, "_MEIPASS"):
-        # PyInstaller onefile extraction dir.
-        search_paths.append(os.path.join(sys._MEIPASS, "bin", resource_name))
-        search_paths.append(os.path.join(sys._MEIPASS, resource_name))
+    """Finds a resource file ONLY in local directories (no system PATH fallback)."""
+    search_paths: list[str] = []
 
+    # 1. Nuitka onefile extraction dir (sys._MEIPASS) or PyInstaller compat.
+    for base in filter(None, [
+        getattr(sys, "_MEIPASS", None),
+        getattr(sys, "_MEIPASSPKG", None),
+    ]):
+        search_paths.append(os.path.join(base, "bin", resource_name))
+        search_paths.append(os.path.join(base, resource_name))
+
+    # 2. Nuitka onefile: the exe sits inside a temp dir with extracted files.
+    #    sys.executable is the original exe, but __file__-relative works.
     try:
-        # Directory of the running executable/script. In Nuitka standalone
-        # this is the folder containing the .exe (resources live next to it
-        # in ./bin and ./); in Nuitka onefile the bundled data files are
-        # extracted next to the running module (see module_dir below).
+        frozen_dir = os.path.dirname(os.path.abspath(sys.executable))
+        search_paths.append(os.path.join(frozen_dir, "bin", resource_name))
+        search_paths.append(os.path.join(frozen_dir, resource_name))
+    except Exception:
+        pass
+
+    # 3. Directory of the running script / argv[0].
+    try:
         exe_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
         search_paths.append(os.path.join(exe_dir, "bin", resource_name))
         search_paths.append(os.path.join(exe_dir, resource_name))
     except Exception:
-        logger.debug("argv-based resource lookup unavailable; using PATH only.")
+        logger.debug("argv-based resource lookup unavailable.")
 
+    # 4. Directory of this source module (works for both dev and Nuitka).
     try:
-        # Directory of this module. In Nuitka onefile mode this resolves
-        # inside the temporary extraction folder where bundled data files
-        # (bin/, icon.ico, ...) are unpacked at startup.
         module_dir = os.path.dirname(os.path.abspath(__file__))
         search_paths.append(os.path.join(module_dir, "bin", resource_name))
         search_paths.append(os.path.join(module_dir, resource_name))
     except Exception:
-        logger.debug("module-based resource lookup unavailable; using PATH only.")
+        logger.debug("module-based resource lookup unavailable.")
 
+    # 5. Dev-mode: project root / bin.
     try:
-        script_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
-        project_root = os.path.dirname(script_dir)
-
+        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         search_paths.append(os.path.join(project_root, "bin", resource_name))
         search_paths.append(os.path.join(project_root, "src", resource_name))
         search_paths.append(os.path.join(project_root, resource_name))
     except Exception:
-        logger.debug("project-root resource lookup unavailable; using PATH only.")
+        logger.debug("project-root resource lookup unavailable.")
 
     for path in search_paths:
         if os.path.exists(path):
-            logger.debug(f"Found '{resource_name}' at: {path}")
+            logger.info(f"Resolved resource '{resource_name}' -> {path}")
             return os.path.normpath(path)
 
-    if path_in_sys := shutil.which(resource_name):
-        logger.debug(f"Found '{resource_name}' in system PATH: {path_in_sys}")
-        return os.path.normpath(path_in_sys)
-
     logger.warning(
-        f"Resource '{resource_name}' could not be found in standard locations or system PATH."
+        f"Resource '{resource_name}' not found in any known location. "
+        f"searched {len(search_paths)} paths; _MEIPASS={getattr(sys, '_MEIPASS', 'N/A')}"
     )
     return None
 
@@ -190,11 +187,11 @@ def generate_output_path(
         title = sanitize_filename_component(meta.get("title"), True, "Video")
         artist = sanitize_filename_component(meta.get("artist"), True, "")
         year = meta.get("year", "")
-        syndicate = meta.get("syndicate", "")
+        studio = meta.get("studio") or meta.get("syndicate", "")
 
         folder_parts = [p for p in [title, artist, year] if p]
-        if syndicate:
-            folder_parts.append(f"©{syndicate}")
+        if studio:
+            folder_parts.append(studio)
 
         folder_name = " ".join(folder_parts)
         sanitized_folder_name = sanitize_filename_component(

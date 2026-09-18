@@ -82,7 +82,7 @@ class App(ctk.CTk):
         self.target_mb_var = ctk.StringVar(
             value=str(config.WORKFLOW_PRESETS["THE_JOB"]["default_target_mb"])
         )
-        self.target_mb_display_var = ctk.StringVar(value="The Job")
+        self.target_mb_display_var = ctk.StringVar(value="Target Size")
         self.preview_stills_paths: list[str] = []
         self.preview_stills_timestamps: list[float] = []
         self.preview_stills_colors: dict[str, list[str]] = {}
@@ -133,7 +133,7 @@ class App(ctk.CTk):
                 "Dependency Error",
                 "Critical Error: Cannot find "
                 f"{missing_str}.\n\nPlease ensure FFmpeg is in a 'bin' folder "
-                "next to the application or in the system PATH.\n\n"
+                "next to the application.\n\n"
                 "Application will now exit.",
             )
 
@@ -173,18 +173,18 @@ class App(ctk.CTk):
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(1, weight=1)
         padding = config.Theme.PADDING
-        top_frame = ctk.CTkFrame(self, fg_color="transparent")
+        top_frame = ctk.CTkFrame(self, fg_color=config.Theme.BACKGROUND, corner_radius=0)
         top_frame.grid(row=0, column=0, padx=padding, pady=(0, 0), sticky="ew")
         gui_panels.create_top_bar(self, top_frame)
 
-        main_frame = ctk.CTkFrame(self, fg_color="transparent")
+        main_frame = ctk.CTkFrame(self, fg_color=config.Theme.BACKGROUND, corner_radius=0)
         main_frame.grid(row=1, column=0, padx=0, pady=0, sticky="nsew")
-        main_frame.grid_columnconfigure(0, weight=2, minsize=400)
-        main_frame.grid_columnconfigure(1, weight=3)
+        main_frame.grid_columnconfigure(0, weight=1, minsize=260)
+        main_frame.grid_columnconfigure(1, weight=4)
         main_frame.grid_rowconfigure(0, weight=1)
 
         left_panel_container = ctk.CTkFrame(
-            main_frame, fg_color=config.Theme.BACKGROUND
+            main_frame, fg_color=config.Theme.BACKGROUND, corner_radius=0
         )
         left_panel_container.grid(
             row=0,
@@ -193,9 +193,11 @@ class App(ctk.CTk):
             pady=(0, padding),
             sticky="nsew",
         )
+        left_panel_container.grid_columnconfigure(0, weight=1)
+        left_panel_container.grid_rowconfigure(0, weight=1)
         gui_panels.create_settings_panel(self, left_panel_container)
 
-        right_panel = ctk.CTkFrame(main_frame, fg_color="transparent")
+        right_panel = ctk.CTkFrame(main_frame, fg_color=config.Theme.BACKGROUND, corner_radius=0)
         right_panel.grid(
             row=0,
             column=1,
@@ -204,7 +206,8 @@ class App(ctk.CTk):
             sticky="nsew",
         )
         right_panel.grid_columnconfigure(0, weight=1)
-        right_panel.grid_rowconfigure(0, weight=1)
+        right_panel.grid_rowconfigure(0, weight=3)
+        right_panel.grid_rowconfigure(1, weight=0)
         right_panel.grid_rowconfigure(2, weight=1)
 
         gui_panels.create_preview_panel(self, right_panel)
@@ -467,7 +470,7 @@ class App(ctk.CTk):
                 if self.input_file_original
                 else "[Source Directory]"
             )
-            dest_label.configure(text=f"Drop-off: {path}")
+            dest_label.configure(text=f"Destination: {path}")
 
     def _update_estimates(self):
         if not self.is_video_loaded or not (
@@ -478,11 +481,20 @@ class App(ctk.CTk):
             gui_updaters.update_estimates_display(self, 0, 0, 0, None)
             return
 
+        # NOTE: all Tk variable reads happen here on the main thread.
+        # calculate_preset_estimate runs in worker threads, and any Tk
+        # .get() call off the main thread can freeze/crash the app.
+        quality_level = self.quality_level_var.get()
+        try:
+            target_mb_val = float(self.target_mb_var.get())
+        except (ValueError, TypeError):
+            target_mb_val = None
+
         base_job_item = {
             "input_file_info": self.input_file_info,
             "crop_mode": self.crop_mode_var.get(),
             "custom_crop_string": self.custom_crop_var.get(),
-            "quality_level": self.quality_level_var.get(),
+            "quality_level": quality_level,
             "target_mb_val": self.target_mb_var.get(),
             "metadata": self.metadata,
         }
@@ -539,9 +551,7 @@ class App(ctk.CTk):
 
             is_crf_local = "crf" in preset_conf.get("rate_control_mode", "")
             if is_crf_local:
-                crf_here = preset_conf.get("crf_levels", {}).get(
-                    self.quality_level_var.get()
-                )
+                crf_here = preset_conf.get("crf_levels", {}).get(quality_level)
                 return (pid, 0, 0, time_est, True, crf_here)
 
             video_kbps = utils.calculate_video_bitrate(
@@ -549,10 +559,10 @@ class App(ctk.CTk):
             )
 
             if pid == "THE_JOB":
-                try:
-                    size_est = float(self.target_mb_var.get())
-                except (ValueError, TypeError):
+                if target_mb_val is None:
                     size_est = config.WORKFLOW_PRESETS["THE_JOB"]["default_target_mb"]
+                else:
+                    size_est = target_mb_val
             else:
                 audio_kbps = preset_conf.get(
                     "audio_bitrate_kbps",
@@ -621,10 +631,18 @@ class App(ctk.CTk):
                 or os.path.basename(job.get("input_file", "...")),
             )
             if not job_metadata.get("title") or not job_metadata.get("year"):
+                missing = [
+                    name
+                    for name, value in (
+                        ("Title", job_metadata.get("title")),
+                        ("Year", job_metadata.get("year")),
+                    )
+                    if not value
+                ]
                 if not messagebox.askyesno(
                     "Missing Metadata",
-                    f"The job for '{job_title}' has a missing Title "
-                    "and/or Year.\n\nProceed anyway?",
+                    f"The job for '{job_title}' is missing: {', '.join(missing)}.\n\n"
+                    "Proceed anyway?",
                     icon="question",
                     parent=self,
                 ):

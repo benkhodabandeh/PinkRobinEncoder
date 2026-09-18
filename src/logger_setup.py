@@ -113,6 +113,6 @@ def setup_logging() -> None:
     # Log the initialization message
     init_logger = logging.getLogger(__name__)
     init_logger.info("=" * 60)
-    init_logger.info(f"Logging initialized for {config.APP_NAME} v{config.APP_VERSION}")
+    init_logger.info(f"Logging initialized for {config.APP_NAME} {config.APP_VERSION}")
     init_logger.info(f"Log file location: {log_filepath}")
     init_logger.info("=" * 60)

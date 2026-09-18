@@ -61,14 +61,22 @@ def test_validate_target_mb():
 
 def test_validate_metadata_dict():
     clean, errors = validators.validate_metadata_dict(
-        {"title": "Film", "artist": "", "year": "2024", "syndicate": ""}
+        {"title": "Film", "artist": "", "year": "2024", "studio": ""}
     )
     assert not errors
     assert clean["title"] == "Film"
     _, errors = validators.validate_metadata_dict(
-        {"title": "", "artist": "", "year": "xx", "syndicate": ""}
+        {"title": "", "artist": "", "year": "xx", "studio": ""}
     )
     assert "title" in errors and "year" in errors
+
+
+def test_validate_metadata_dict_legacy_syndicate_key():
+    clean, errors = validators.validate_metadata_dict(
+        {"title": "Film", "artist": "", "year": "2024", "syndicate": "Older Studio"}
+    )
+    assert not errors
+    assert clean["studio"] == "Older Studio"
 
 
 def test_validate_metadata_key():

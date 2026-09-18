@@ -1,6 +1,6 @@
 # Third-Party Acknowledgments
 
-Ben. Khodabandeh Video Encoder bundles or depends on the following third-party components.
+Pink Robin Encoder bundles or depends on the following third-party components.
 Each is used under its respective license.
 
 | Component | License | Home |
@@ -34,4 +34,4 @@ Each is used under its respective license.
 
 Full license texts are available in the root `LICENSE` file (GPLv3) and at the
 respective home pages listed above. The source code for this application is
-available at https://github.com/benkhodabandeh/BKVideoEncoder.
+available at https://github.com/benkhodabandeh/PinkRobinEncoder.

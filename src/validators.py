@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import os
 import re
-from datetime import datetime
 
 MAX_TEXT_LEN = 200
 MAX_PATH_LEN = 260  # Windows MAX_PATH (classic); long-path aware code paths exist
@@ -52,16 +51,15 @@ def validate_year(value: object) -> tuple[str, str | None]:
     if not _YEAR_RE.match(text):
         return "", "Year must be a 4-digit number (e.g. 2024)."
     year = int(text)
-    current = datetime.now().year
-    if not (1880 <= year <= current + 5):
-        return "", f"Year must be between 1880 and {current + 5}."
+    if not (1890 <= year <= 2100):
+        return "", "Year must be between 1890 and 2100."
     return text, None
 
 
-def validate_syndicate(value: object) -> tuple[str, str | None]:
+def validate_studio(value: object) -> tuple[str, str | None]:
     text = _strip_controls(str(value or "")).strip()
     if len(text) > MAX_TEXT_LEN:
-        return text[:MAX_TEXT_LEN], f"Syndicate truncated to {MAX_TEXT_LEN} characters."
+        return text[:MAX_TEXT_LEN], f"Studio truncated to {MAX_TEXT_LEN} characters."
     return text, None
 
 
@@ -69,11 +67,13 @@ def validate_metadata_dict(raw: dict[str, object]) -> tuple[dict[str, str], dict
     """Validate the four user metadata fields. Returns (clean, errors)."""
     clean: dict[str, str] = {}
     errors: dict[str, str] = {}
+    if "studio" not in raw and "syndicate" in raw:
+        raw = {**raw, "studio": raw["syndicate"]}
     validators = {
         "title": validate_title,
         "artist": validate_artist,
         "year": validate_year,
-        "syndicate": validate_syndicate,
+        "studio": validate_studio,
     }
     for field, func in validators.items():
         value, err = func(raw.get(field, ""))

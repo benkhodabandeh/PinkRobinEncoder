@@ -97,16 +97,21 @@ def stop_busy_animation(app: "App"):
 def display_welcome_screen(app: "App") -> None:
     if not (preview_canvas := app._get_widget("preview_canvas")):
         return
-    preview_canvas.delete("all")
-    app._preview_photo_image_ref = None
     canvas_w, canvas_h = preview_canvas.winfo_width(), preview_canvas.winfo_height()
     if canvas_w < 2 or canvas_h < 2:
         return
+    cache_key = ("welcome", canvas_w // 32, canvas_h // 32)
+    if getattr(app, "_last_preview_key", None) == cache_key:
+        return
+    preview_canvas.delete("preview")
+    preview_canvas.delete("welcome")
+    app._preview_photo_image_ref = None
 
     y_pos = canvas_h / 2 - 40
     if app.logo_photo_image:
         preview_canvas.create_image(
-            canvas_w / 2, y_pos, anchor="center", image=app.logo_photo_image
+            canvas_w / 2, y_pos, anchor="center", image=app.logo_photo_image,
+            tags="welcome",
         )
         y_pos += app.logo_photo_image.height() / 2 + 30
     else:
@@ -117,24 +122,25 @@ def display_welcome_screen(app: "App") -> None:
             fill=config.Theme.TEXT_PRIMARY,
             font=config.Theme.FONT_H1,
             anchor="center",
+            tags="welcome",
         )
         y_pos += 40
 
     preview_canvas.create_text(
         canvas_w / 2,
         y_pos,
-        text="Load evidence to begin.",
+        text="Load a video to begin.",
         fill=config.Theme.TEXT_SECONDARY,
         font=config.Theme.FONT_BODY,
         anchor="center",
+        tags="welcome",
     )
+    app._last_preview_key = cache_key
 
 
 def display_preview_image(app: "App", image_path: str | None) -> None:
     if not (preview_canvas := app._get_widget("preview_canvas")):
         return
-    preview_canvas.delete("all")
-    app._preview_photo_image_ref = None
 
     if not image_path or not os.path.exists(image_path) or not analysis.HAS_PILLOW:
         display_welcome_screen(app)
@@ -185,15 +191,28 @@ def display_preview_image(app: "App", image_path: str | None) -> None:
             new_w, new_h = int(img_w * scale), int(img_h * scale)
 
             if new_w > 0 and new_h > 0:
+                try:
+                    mtime = os.path.getmtime(image_path)
+                except OSError:
+                    mtime = 0
+                colors_key = tuple(app.preview_stills_colors.get(image_path) or [])
+                cache_key = (image_path, new_w, new_h, crop_filter_str, mtime, colors_key)
+                if getattr(app, "_last_preview_key", None) == cache_key:
+                    return
                 resized_img = img_to_display.resize(
                     (new_w, new_h), Image.Resampling.LANCZOS
                 )
                 photo_image = ImageTk.PhotoImage(resized_img)
-                app._preview_photo_image_ref = photo_image
+                # Replace only the previous preview item instead of clearing
+                # the whole canvas - avoids black flashes during resize.
+                preview_canvas.delete("preview")
+                preview_canvas.delete("welcome")
                 img_x, img_y = (canvas_w - new_w) / 2, (canvas_h - new_h) / 2
                 preview_canvas.create_image(
-                    img_x, img_y, anchor="nw", image=photo_image
+                    img_x, img_y, anchor="nw", image=photo_image, tags="preview"
                 )
+                app._preview_photo_image_ref = photo_image
+                app._last_preview_key = cache_key
 
     except Exception as e:
         logger.exception(f"Error displaying preview image '{image_path}': {e}")
@@ -210,10 +229,18 @@ def update_preset_button_styles(app: "App") -> None:
         "workflow_buttons": app.selected_workflow_presets,
     }
 
+    cache = getattr(app, "_preset_style_cache", None)
+    if cache is None:
+        cache = app._preset_style_cache = {}
     for button_key, preset_set in preset_sets_map.items():
         for pid, button_ref in app.widget_refs.get(button_key, {}).items():
             if button := app._get_widget(button_ref):
                 is_active = pid in preset_set
+                # Skip re-configuring unchanged buttons: each configure()
+                # forces a full repaint, and doing all 7 at once stutters.
+                if cache.get(pid) == is_active:
+                    continue
+                cache[pid] = is_active
                 if is_active:
                     button.configure(
                         fg_color=config.Theme.SECONDARY,
@@ -233,7 +260,7 @@ def update_mb_button_display(app: "App"):
         mb_val = float(app.target_mb_var.get())
         display_text = f"{mb_val:.0f} MB"
     except (ValueError, TypeError):
-        display_text = "The Job"
+        display_text = "Target Size"
     app.target_mb_display_var.set(display_text)
 
 
@@ -286,7 +313,7 @@ def handle_set_video_info(app: "App", video_info: dict[str, Any] | None) -> None
         app.input_file_info = video_info
         if load_btn := app._get_widget("load_button"):
             load_btn.configure(
-                fg_color=config.Theme.SUCCESS, text="Evidence Loaded"
+                fg_color=config.Theme.SUCCESS, text="Video Loaded"
             )  # Use success color
         if details_label := app._get_widget("source_details_label"):
             details_label.configure(
@@ -303,7 +330,7 @@ def handle_set_video_info(app: "App", video_info: dict[str, Any] | None) -> None
     else:
         app.reset_to_load_state(None)
         if load_btn := app._get_widget("load_button"):
-            load_btn.configure(fg_color=config.Theme.PRIMARY, text="Load Evidence")
+            load_btn.configure(fg_color=config.Theme.PRIMARY, text="Load Video")
     app._update_ui_state()
     app._update_estimates()
 
@@ -314,6 +341,9 @@ def handle_set_source_material(app: "App", source_material: str) -> None:
 
 
 def handle_set_metadata_from_dict(app: "App", meta_dict: dict[str, str]):
+    meta_dict = dict(meta_dict)
+    if "studio" not in meta_dict and "syndicate" in meta_dict:
+        meta_dict["studio"] = meta_dict.pop("syndicate")
     app.metadata = meta_dict.copy()
     for field, value in meta_dict.items():
         if entry_ref := app.widget_refs.get("meta_entries", {}).get(field):
@@ -360,6 +390,10 @@ def handle_update_single_preview(
         if new_colors:
             app.preview_stills_colors[new_path] = new_colors
         if index == app.current_preview_index:
+            # Reload overwrites the same file path, so bust the preview
+            # cache (which is keyed by path+mtime) to force a fresh decode.
+            if hasattr(app, "_last_preview_key"):
+                app._last_preview_key = None
             display_preview_image(app, new_path)
     app._update_ui_state()
 
@@ -386,7 +420,7 @@ def show_task_complete_summary(
     details = f"• Outputs Created: {outputs} video file(s), {stills} still image(s)."
     if app.winfo_exists():
         ui_components.CompletionDialog(
-            app, "The Job is Done", details, output_path, elapsed_time, estimated_time
+            app, "Encode Complete", details, output_path, elapsed_time, estimated_time
         )
 
 

@@ -29,7 +29,10 @@ def _create_card_frame(parent: ctk.CTkFrame) -> ctk.CTkFrame:
     frame = ctk.CTkFrame(
         parent, fg_color=config.Theme.SURFACE, corner_radius=config.Theme.CORNER_RADIUS
     )
-    frame.pack(fill="x", padx=config.Theme.PADDING, pady=config.Theme.PADDING_SMALL)
+    # Each card's parcel expands so any vertical slack is shared
+    # evenly between the cards — the stack fills the panel with space
+    # *between* modules instead of a dead gap at the bottom.
+    frame.pack(fill="x", padx=8, pady=4, expand=True)
     return frame
 
 
@@ -41,40 +44,40 @@ def create_top_bar(app: "App", parent: ctk.CTkFrame):
 
     load_button = ctk.CTkButton(
         parent,
-        text="Load Evidence",
-        width=160,
-        height=40,
+        text="Load Video",
+        width=140,
+        height=36,
         command=lambda: gui_callbacks.load_video_callback(app),
         font=config.Theme.FONT_BUTTON,
         fg_color=config.Theme.PRIMARY,
         hover_color=config.Theme.PRIMARY_HOVER,
         corner_radius=config.Theme.CORNER_RADIUS,
     )
-    load_button.grid(row=0, column=0, padx=(0, padding), pady=padding, sticky="w")
+    load_button.grid(row=0, column=0, padx=(0, padding // 2), pady=(padding // 2, padding // 2), sticky="w")
     app.widget_refs["load_button"] = weakref.ref(load_button)
 
     dest_button = ctk.CTkButton(
         parent,
-        text="Set Drop-off",
-        width=120,
-        height=40,
+        text="Set Destination",
+        width=130,
+        height=36,
         command=lambda: gui_callbacks.select_destination_callback(app),
         font=config.Theme.FONT_BUTTON,
-        fg_color="transparent",
-        hover_color=config.Theme.SURFACE_LIGHT,
+        fg_color=config.Theme.SECONDARY,
+        hover_color=config.Theme.SECONDARY_HOVER,
         corner_radius=config.Theme.CORNER_RADIUS,
     )
-    dest_button.grid(row=0, column=2, padx=padding, pady=padding, sticky="w")
+    dest_button.grid(row=0, column=2, padx=(padding // 2, 0), pady=(padding // 2, padding // 2), sticky="w")
     app.widget_refs["dest_button"] = weakref.ref(dest_button)
 
     dest_label = ctk.CTkLabel(
         parent,
-        text="Drop-off: [Source Directory]",
+        text="Destination: [Source Directory]",
         anchor="w",
         font=config.Theme.FONT_SMALL,
         text_color=config.Theme.TEXT_SECONDARY,
     )
-    dest_label.grid(row=0, column=1, padx=padding, pady=padding, sticky="w")
+    dest_label.grid(row=0, column=1, padx=(padding // 2, padding // 2), pady=(padding // 2, padding // 2), sticky="w")
     app.widget_refs["dest_label"] = weakref.ref(dest_label)
 
     qc_button = ctk.CTkButton(
@@ -96,37 +99,53 @@ def create_top_bar(app: "App", parent: ctk.CTkFrame):
 
 # --- Left Panel ---
 def create_settings_panel(app: "App", parent: ctk.CTkFrame):
-    """Creates the main settings panel on the left."""
+    """Creates the main settings panel on the left (fixed, no scrolling).
+
+    The container is stretched to fill the available height so no empty gap
+    remains at the bottom. Extra vertical space is shared evenly between
+    the cards via pack distribution.
+    """
     parent.grid_columnconfigure(0, weight=1)
     parent.grid_rowconfigure(0, weight=1)
 
-    settings_container = ctk.CTkScrollableFrame(
-        parent, fg_color="transparent", corner_radius=0
+    settings_container = ctk.CTkFrame(
+        parent, fg_color=config.Theme.BACKGROUND, corner_radius=0
     )
     settings_container.grid(row=0, column=0, sticky="nsew", padx=0, pady=0)
     settings_container.grid_columnconfigure(0, weight=1)
-    settings_container._scrollbar.configure(height=0)
+    settings_container.grid_rowconfigure(0, weight=1)
+
+    # Inner frame that actually holds the cards and expands to fill height;
+    # packing the cards inside it with expand lets the slack be shared.
+    inner = ctk.CTkFrame(settings_container, fg_color=config.Theme.BACKGROUND, corner_radius=0)
+    inner.grid(row=0, column=0, sticky="nsew")
+    inner.grid_columnconfigure(0, weight=1)
+
+    # Redirect all card creation into 'inner' by temporarily swapping
+    # the variable used below. We achieve this without changing every
+    # helper signature by re-binding settings_container locally.
+    settings_container = inner
 
     _create_metadata_panel(app, settings_container)
     _create_source_details_panel(app, settings_container)
     _create_preset_panel(
         app,
         settings_container,
-        "Standard Operations",
+        "Standard Presets",
         config.STANDARD_PRESETS,
         "preset_buttons",
     )
     _create_preset_panel(
         app,
         settings_container,
-        "Fast Operations",
+        "Fast Presets",
         config.FAST_PRESETS,
         "fast_preset_buttons",
     )
     _create_preset_panel(
         app,
         settings_container,
-        "Special Workflows",
+        "Workflow Presets",
         config.WORKFLOW_PRESETS,
         "workflow_buttons",
     )
@@ -140,13 +159,13 @@ def _create_metadata_panel(app: "App", parent: ctk.CTkFrame):
     meta_frame.grid_columnconfigure(1, weight=1)
     padding = config.Theme.PADDING
 
-    ctk.CTkLabel(meta_frame, text="Case File", font=config.Theme.FONT_H2).grid(
+    ctk.CTkLabel(meta_frame, text="File Metadata", font=config.Theme.FONT_H2).grid(
         row=0,
         column=0,
         columnspan=2,
         sticky="w",
-        padx=padding,
-        pady=(padding, padding - 5),
+        padx=8,
+        pady=(8, 4),
     )
 
     app.widget_refs["meta_entries"] = {}
@@ -154,20 +173,28 @@ def _create_metadata_panel(app: "App", parent: ctk.CTkFrame):
         label = ctk.CTkLabel(
             meta_frame, text=field.title() + ":", font=config.Theme.FONT_BODY
         )
-        label.grid(row=i + 1, column=0, sticky="w", padx=(padding, 10))
+        label.grid(row=i + 1, column=0, sticky="w", padx=(8, 6), pady=(2, 2))
         entry = ctk.CTkEntry(
             meta_frame,
             textvariable=ctk.StringVar(value=""),
             corner_radius=config.Theme.CORNER_RADIUS,
             fg_color=config.Theme.BACKGROUND,
             border_color=config.Theme.SECONDARY,
+            height=32,
         )
-        entry.grid(row=i + 1, column=1, sticky="ew", pady=5, padx=(0, padding))
+        entry.grid(row=i + 1, column=1, sticky="ew", pady=(3, 3), padx=(0, 8))
         entry.bind(
             "<KeyRelease>",
             lambda event, f=field: gui_callbacks.metadata_entry_callback(app, event, f),
         )
         app.widget_refs["meta_entries"][field] = weakref.ref(entry)
+    ctk.CTkLabel(meta_frame, text="", height=4).grid(
+        row=len(config.METADATA_USER_FIELDS) + 1,
+        column=0,
+        columnspan=2,
+        sticky="ew",
+        pady=(0, 8),
+    )
 
 
 def _create_source_details_panel(app: "App", parent: ctk.CTkFrame):
@@ -176,17 +203,17 @@ def _create_source_details_panel(app: "App", parent: ctk.CTkFrame):
     padding = config.Theme.PADDING
 
     ctk.CTkLabel(
-        details_frame, text="Evidence Details", font=config.Theme.FONT_H2
-    ).grid(row=0, column=0, sticky="w", padx=padding, pady=(padding, padding - 5))
+        details_frame, text="Source Details", font=config.Theme.FONT_H2
+    ).grid(row=0, column=0, sticky="w", padx=8, pady=(6, 2))
     details_label = ctk.CTkLabel(
         details_frame,
-        text="Load some evidence to see the details.",
+        text="Load a video to see the details.",
         anchor="nw",
         justify="left",
         font=config.Theme.FONT_BODY,
         text_color=config.Theme.TEXT_SECONDARY,
     )
-    details_label.grid(row=1, column=0, sticky="ew", padx=padding, pady=(0, padding))
+    details_label.grid(row=1, column=0, sticky="ew", padx=8, pady=(0, 6))
     app.widget_refs["source_details_label"] = weakref.ref(details_label)
 
 
@@ -197,10 +224,10 @@ def _create_preset_panel(
     padding = config.Theme.PADDING
 
     ctk.CTkLabel(preset_frame, text=title, font=config.Theme.FONT_H2).pack(
-        anchor="w", padx=padding, pady=(padding, 5)
+        anchor="w", padx=8, pady=(6, 2)
     )
     btn_container = ctk.CTkFrame(preset_frame, fg_color="transparent")
-    btn_container.pack(fill="x", padx=padding - 5, pady=(0, padding - 5))
+    btn_container.pack(fill="x", padx=3, pady=(0, 4))
 
     cols = 3
     app.widget_refs[widget_ref_key] = {}
@@ -214,7 +241,7 @@ def _create_preset_panel(
         desc = presets[pid].get("description", "")
         if desc:
             btn_kwargs["hover"] = True
-        if presets[pid]["name"] == "The Job":
+        if pid == "THE_JOB":
             button = ctk.CTkButton(
                 btn_container, textvariable=app.target_mb_display_var, **btn_kwargs
             )
@@ -236,7 +263,7 @@ def _create_preset_panel(
         # Visible keyboard-focus indicator (WCAG 2.4.7).
         a11y.add_focus_ring(button)
         button.grid(
-            row=i // cols, column=i % cols, sticky="ew", padx=5, pady=5, ipady=8
+            row=i // cols, column=i % cols, sticky="ew", padx=2, pady=2, ipady=2
         )
         app.widget_refs[widget_ref_key][pid] = weakref.ref(button)
 
@@ -247,7 +274,7 @@ def _create_adjustments_panel(app: "App", parent: ctk.CTkFrame):
     padding = config.Theme.PADDING
 
     ctk.CTkLabel(adj_frame, text="Adjustments", font=config.Theme.FONT_H2).grid(
-        row=0, column=0, columnspan=2, sticky="w", padx=padding, pady=(padding, 10)
+        row=0, column=0, columnspan=2, sticky="w", padx=8, pady=(6, 2)
     )
     _create_slider(
         app,
@@ -283,7 +310,7 @@ def _create_slider(
 ):
     padding = config.Theme.PADDING
     ctk.CTkLabel(parent, text=title, font=config.Theme.FONT_SUBTITLE).grid(
-        row=row * 2, column=0, columnspan=2, sticky="w", padx=padding, pady=(10, 2)
+        row=row * 2, column=0, columnspan=2, sticky="w", padx=8, pady=(4, 0)
     )
 
     slider_frame = ctk.CTkFrame(parent, fg_color="transparent")
@@ -292,8 +319,8 @@ def _create_slider(
         column=0,
         columnspan=2,
         sticky="ew",
-        padx=padding,
-        pady=(0, padding),
+        padx=8,
+        pady=(0, 4),
     )
     slider_frame.grid_columnconfigure(0, weight=1)
 
@@ -328,11 +355,11 @@ def _create_options_panel(app: "App", parent: ctk.CTkFrame):
     padding = config.Theme.PADDING
 
     ctk.CTkLabel(options_frame, text="Options", font=config.Theme.FONT_H2).pack(
-        anchor="w", padx=padding, pady=(padding, 5)
+        anchor="w", padx=8, pady=(6, 2)
     )
 
     inner_frame = ctk.CTkFrame(options_frame, fg_color="transparent")
-    inner_frame.pack(fill="x", padx=padding, pady=(0, padding))
+    inner_frame.pack(fill="x", padx=8, pady=(0, 6))
     inner_frame.grid_columnconfigure((0, 1), weight=1)
 
     # CROP
@@ -353,7 +380,7 @@ def _create_options_panel(app: "App", parent: ctk.CTkFrame):
         font=config.Theme.FONT_BODY,
         dropdown_font=config.Theme.FONT_BODY,
     )
-    crop_menu.pack(fill="x", pady=(5, 0), ipady=4)
+    crop_menu.pack(fill="x", pady=(2, 0), ipady=2)
     app.widget_refs["crop_menu"] = weakref.ref(crop_menu)
     custom_crop_entry = ctk.CTkEntry(
         crop_frame,
@@ -367,6 +394,10 @@ def _create_options_panel(app: "App", parent: ctk.CTkFrame):
     custom_crop_entry.bind(
         "<KeyRelease>", lambda e: gui_callbacks.custom_crop_entry_callback(app)
     )
+    # Hidden until Crop == "Custom" (crop_mode_callback packs it on demand),
+    # so there is no stray empty box under the dropdown.
+    if app.crop_mode_var.get() == "Custom":
+        custom_crop_entry.pack(fill="x", pady=2, ipady=2)
 
     # AUDIO & STILLS (using Checkboxes)
     checks_frame = ctk.CTkFrame(inner_frame, fg_color="transparent")
@@ -386,7 +417,7 @@ def _create_options_panel(app: "App", parent: ctk.CTkFrame):
         fg_color=config.Theme.PRIMARY,
         hover_color=config.Theme.PRIMARY_HOVER,
     )
-    downmix_check.pack(anchor="w", pady=(8, 4))
+    downmix_check.pack(anchor="w", pady=(4, 2))
     app.widget_refs["downmix_check"] = weakref.ref(downmix_check)
 
     stills_check = ctk.CTkCheckBox(
@@ -400,7 +431,7 @@ def _create_options_panel(app: "App", parent: ctk.CTkFrame):
         fg_color=config.Theme.PRIMARY,
         hover_color=config.Theme.PRIMARY_HOVER,
     )
-    stills_check.pack(anchor="w", pady=4)
+    stills_check.pack(anchor="w", pady=2)
     app.widget_refs["stills_check"] = weakref.ref(stills_check)
 
 
@@ -408,12 +439,12 @@ def _create_special_ops_panel(app: "App", parent: ctk.CTkFrame):
     ops_frame = _create_card_frame(parent)
     padding = config.Theme.PADDING
 
-    ctk.CTkLabel(ops_frame, text="Special Operations", font=config.Theme.FONT_H2).pack(
-        anchor="w", padx=padding, pady=(padding, 5)
+    ctk.CTkLabel(ops_frame, text="Additional Tools", font=config.Theme.FONT_H2).pack(
+        anchor="w", padx=8, pady=(6, 3)
     )
 
     inner_frame = ctk.CTkFrame(ops_frame, fg_color="transparent")
-    inner_frame.pack(fill="both", expand=True, padx=padding, pady=(0, padding))
+    inner_frame.pack(fill="both", expand=True, padx=8, pady=(0, 6))
     inner_frame.grid_columnconfigure(0, weight=1)
 
     btn_kwargs = {
@@ -431,7 +462,7 @@ def _create_special_ops_panel(app: "App", parent: ctk.CTkFrame):
         command=lambda: gui_callbacks.mux_callback(app),
         **btn_kwargs,
     )
-    mux_button.pack(fill="x", pady=4, ipady=5)
+    mux_button.pack(fill="x", pady=2, ipady=3)
     app.widget_refs["mux_button"] = weakref.ref(mux_button)
 
     audio_button = ctk.CTkButton(
@@ -440,7 +471,7 @@ def _create_special_ops_panel(app: "App", parent: ctk.CTkFrame):
         command=lambda: gui_callbacks.audio_only_callback(app),
         **btn_kwargs,
     )
-    audio_button.pack(fill="x", pady=4, ipady=5)
+    audio_button.pack(fill="x", pady=2, ipady=3)
     app.widget_refs["audio_only_button"] = weakref.ref(audio_button)
 
 
@@ -448,7 +479,7 @@ def _create_special_ops_panel(app: "App", parent: ctk.CTkFrame):
 def create_preview_panel(app: "App", parent: ctk.CTkFrame):
     """Creates the preview area with canvas and a separate, professional control bar below it."""
     preview_container = ctk.CTkFrame(
-        parent, fg_color=config.Theme.SURFACE, corner_radius=config.Theme.CORNER_RADIUS
+        parent, fg_color=config.Theme.SURFACE, corner_radius=0
     )
     preview_container.grid(
         row=0, column=0, sticky="nsew", pady=(0, config.Theme.PADDING)
@@ -463,7 +494,7 @@ def create_preview_panel(app: "App", parent: ctk.CTkFrame):
     app.widget_refs["preview_canvas"] = weakref.ref(canvas)
     canvas.bind("<Configure>", lambda e: gui_callbacks.preview_resize_callback(app, e))
 
-    preview_controls = ctk.CTkFrame(preview_container, fg_color="transparent")
+    preview_controls = ctk.CTkFrame(preview_container, fg_color=config.Theme.SURFACE, corner_radius=0)
     preview_controls.grid(row=1, column=0, sticky="ew", padx=10, pady=5)
     preview_controls.grid_columnconfigure(1, weight=1)
 
@@ -508,47 +539,44 @@ def create_preview_panel(app: "App", parent: ctk.CTkFrame):
 
 
 def create_control_panel(app: "App", parent: ctk.CTkFrame):
-    control_frame = ctk.CTkFrame(parent, fg_color="transparent")
-    control_frame.grid(row=1, column=0, sticky="ew", pady=(0, config.Theme.PADDING))
+    control_frame = ctk.CTkFrame(parent, fg_color=config.Theme.BACKGROUND, corner_radius=0)
+    control_frame.grid(row=1, column=0, sticky="ew", pady=(0, 6))
     control_frame.grid_columnconfigure(0, weight=1)
     padding = config.Theme.PADDING
 
     estimates_frame = ctk.CTkFrame(
         control_frame,
         fg_color=config.Theme.SURFACE,
-        corner_radius=config.Theme.CORNER_RADIUS,
+        corner_radius=0,
     )
-    estimates_frame.pack(fill="x", pady=(0, padding), ipady=5)
+    estimates_frame.pack(fill="x", pady=(0, 6), ipady=2)
     estimates_frame.grid_columnconfigure((0, 1, 2), weight=1)
     app.widget_refs["estimates_labels"] = {}
 
     size_label = ctk.CTkLabel(
         estimates_frame, text="Est. Size: --", font=config.Theme.FONT_BODY
     )
-    size_label.grid(row=0, column=0, padx=padding)
-    app.widget_refs["estimates_labels"]["size"] = weakref.ref(size_label)
+    size_label.grid(row=0, column=0, padx=8)
 
     time_label = ctk.CTkLabel(
         estimates_frame, text="~Est. Time: --:--:--", font=config.Theme.FONT_BODY
     )
-    time_label.grid(row=0, column=1, padx=padding)
-    app.widget_refs["estimates_labels"]["time"] = weakref.ref(time_label)
+    time_label.grid(row=0, column=1, padx=8)
 
     bitrate_label = ctk.CTkLabel(
         estimates_frame, text="Bitrate: --", font=config.Theme.FONT_BODY
     )
-    bitrate_label.grid(row=0, column=2, padx=padding)
-    app.widget_refs["estimates_labels"]["bitrate"] = weakref.ref(bitrate_label)
+    bitrate_label.grid(row=0, column=2, padx=8)
 
-    action_frame = ctk.CTkFrame(control_frame, fg_color="transparent")
+    action_frame = ctk.CTkFrame(control_frame, fg_color=config.Theme.BACKGROUND, corner_radius=0)
     action_frame.pack(fill="x")
     action_frame.grid_columnconfigure(0, weight=2)
     action_frame.grid_columnconfigure((1, 2), weight=1)
-    btn_h = 50
+    btn_h = 44
 
     develop_btn = ctk.CTkButton(
         action_frame,
-        text="MAKE THE HIT",
+        text="Start Encode",
         height=btn_h,
         font=config.Theme.FONT_BUTTON,
         command=lambda: gui_callbacks.develop_callback(app),
@@ -556,12 +584,12 @@ def create_control_panel(app: "App", parent: ctk.CTkFrame):
         fg_color=config.Theme.PRIMARY,
         hover_color=config.Theme.PRIMARY_HOVER,
     )
-    develop_btn.grid(row=0, column=0, sticky="ew", padx=(0, padding // 2))
+    develop_btn.grid(row=0, column=0, sticky="ew", padx=(0, 4))
     app.widget_refs["develop_button"] = weakref.ref(develop_btn)
 
     add_queue_btn = ctk.CTkButton(
         action_frame,
-        text="Add to Plan",
+        text="Add to Queue",
         height=btn_h,
         command=lambda: gui_callbacks.add_to_queue_callback(app),
         font=config.Theme.FONT_BUTTON,
@@ -569,33 +597,33 @@ def create_control_panel(app: "App", parent: ctk.CTkFrame):
         hover_color=config.Theme.SECONDARY_HOVER,
         corner_radius=config.Theme.CORNER_RADIUS,
     )
-    add_queue_btn.grid(row=0, column=1, sticky="ew", padx=padding // 2)
+    add_queue_btn.grid(row=0, column=1, sticky="ew", padx=4)
     app.widget_refs["add_queue_button"] = weakref.ref(add_queue_btn)
 
     cancel_btn = ctk.CTkButton(
         action_frame,
-        text="CALL IT OFF",
+        text="Cancel",
         height=btn_h,
         command=lambda: gui_callbacks.cancel_callback(app),
         font=config.Theme.FONT_BUTTON,
         fg_color=config.Theme.ERROR,
-        hover_color="#A55060",
+        hover_color=config.Theme.PRIMARY_HOVER,
         corner_radius=config.Theme.CORNER_RADIUS,
     )
-    cancel_btn.grid(row=0, column=2, sticky="ew", padx=(padding // 2, 0))
+    cancel_btn.grid(row=0, column=2, sticky="ew", padx=(4, 0))
     app.widget_refs["cancel_button"] = weakref.ref(cancel_btn)
 
 
 def create_queue_panel(app: "App", parent: ctk.CTkFrame):
     queue_container = ctk.CTkFrame(
-        parent, fg_color=config.Theme.SURFACE, corner_radius=config.Theme.CORNER_RADIUS
+        parent, fg_color=config.Theme.SURFACE, corner_radius=0
     )
     queue_container.grid(row=2, column=0, sticky="nsew")
     queue_container.grid_rowconfigure(1, weight=1)
     queue_container.grid_columnconfigure(0, weight=1)
 
     ctk.CTkLabel(
-        queue_container, text="The Plan", font=config.Theme.FONT_H2, anchor="w"
+        queue_container, text="Encode Queue", font=config.Theme.FONT_H2, anchor="w"
     ).grid(
         row=0,
         column=0,
@@ -622,7 +650,7 @@ def update_queue_display(app: "App"):
     if not app.batch_queue:
         ctk.CTkLabel(
             queue_frame,
-            text="The plan is empty.",
+            text="The queue is empty.",
             text_color=config.Theme.TEXT_SECONDARY,
             font=config.Theme.FONT_BODY,
         ).pack(pady=20)
@@ -753,7 +781,7 @@ def create_status_bar(app: "App", parent: ctk.CTkFrame):
 
     version_label = ctk.CTkLabel(
         parent,
-        text=f"v{config.APP_VERSION}",
+        text=f"{config.APP_VERSION}",
         anchor="w",
         font=config.Theme.FONT_SMALL,
         text_color=config.Theme.TEXT_SECONDARY,
@@ -762,7 +790,7 @@ def create_status_bar(app: "App", parent: ctk.CTkFrame):
 
     status_label = ctk.CTkLabel(
         parent,
-        text="Waiting for orders...",
+        text="Ready.",
         anchor="w",
         font=config.Theme.FONT_SMALL,
         text_color=config.Theme.TEXT_SECONDARY,
